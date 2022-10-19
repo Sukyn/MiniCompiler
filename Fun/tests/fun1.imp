@@ -1,0 +1,17 @@
+var tpl_var_2;
+var tpl_var_1;
+var z_0;
+
+function fun_0(param_y,closure) {
+  return((param_y+1));
+}
+
+main {
+  tpl_var_1 = malloc((1*4));
+  tpl_var_1[0] = fun_0;
+  z_0 = tpl_var_1;
+  tpl_var_2 = malloc((2*4));
+  tpl_var_2[0] = 7;
+  tpl_var_2[1] = z_0;
+  print_int(((z_0+(0*4)))(tpl_var_2));
+}
