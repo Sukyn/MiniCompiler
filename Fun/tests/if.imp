@@ -1,0 +1,14 @@
+var y_2;
+var t_1;
+var x_0;
+
+main {
+  x_0 = 3;
+  if ((x_0>0)) {
+    y_2 = 2;
+    t_1 = (3+y_2);
+  } else {
+    t_1 = 8;
+  }
+  print_int(t_1);
+}
