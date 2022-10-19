@@ -3,6 +3,9 @@ open Graph
 
 module VSet = Set.Make(String)
 
+type register =
+  | Actual  of string
+  | Stacked of int
 (*
 let liveness fdef =
   let liveness = Hashtbl.create 64 in
@@ -56,11 +59,6 @@ let liveness fdef =
   (* Si le résultat précédent n'est pas VSet.empty, on a risque d'accès à
      des variables non initialisées. *)
   liveness
-
-
-type register =
-  | Actual  of string
-  | Stacked of int
 
 let v0 = "$v0"
 
