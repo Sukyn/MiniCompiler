@@ -34,11 +34,12 @@ let tr_binop = function
   | Mimp.Lt  -> Lt
 
 (* Fonction principale, de traduction d'une définition de fonction *)
-let tr_fdef fdef =
+let tr_fdef globals fdef  =
   (* Liste des registres virtuels. Elle est initialisée avec les variables
      locales et sera étendue à chaque création d'un nouveau registre
      virtuel. *)
   let vregs = ref Mimp.(fdef.locals) in
+  vregs := List.append globals !vregs;
   (* Fonction de génération de nouveaux registres virtuels.
      Renvoie le nouveau nom, et étend la liste. *)
   let counter = ref 0 in
@@ -62,15 +63,13 @@ let tr_fdef fdef =
     | Mimp.Var x ->
        (* Il faut distinguer ici entre variables locales, paramètres et
           variables globales. *)
-       print_endline x;
-       List.iter (Printf.printf "%s ") !vregs;
-       print_endline " VARS LOCALS ";
        if List.mem x !vregs then
              x, Nop
        else if List.mem x Mimp.(fdef.params) then
-             x, Nop
+             let () = Printf.printf("%s") x in
+             let r = new_vreg() in r, Nop ++ Move(r, x)
        else
-          let r = new_vreg() in r, Nop ++ Read(r, x)
+          let r = new_vreg() in r, Nop ++ Move(r, x)
 
     | Mimp.Unop(op, e) ->
        let r1, s1 = tr_expr e in
@@ -84,25 +83,34 @@ let tr_fdef fdef =
     | Mimp.Call(f, args) ->
        (* Il faut réaliser ici la convention d'appel : passer les arguments
           de la bonne manière, et renvoyer le résultat dans $v0. *)
-      
-       "$v0", (List.fold_left (fun acc s ->
+       let i = ref 0 in
+       "$v0", (List.fold_left (fun acc s -> i := !i + 1;
                               let r, t = tr_expr s in
+                              if !i < 5 then acc @@ t ++ Read ((Printf.sprintf "$a%i" !i), r)
+                                        else
                               acc @@ t ++ Push r)
                                        Nop args) ++ Call(f, List.length args)
   in
+
 
   let rec tr_instr = function
     | Mimp.Putchar e ->
        let r, s = tr_expr e in
        s ++ Putchar r
     | Mimp.Set(x, e) ->
-       let z, s = tr_expr e in
-       s ++ Write(x, z)
+       (match e with
+       | Cst n -> Nop ++ Cst(x, n)
+       | _ ->
+         let z, s = tr_expr e in
+         s ++ Move(x, z)
+       )
+
     | Mimp.If(e, s1, s2) ->
       let z, s = tr_expr e in
       let y1 = tr_seq s1 in
       let y2 = tr_seq s2 in
-      y1 @@ y2 ++ If(z, y1, y2)
+      (*y1 @@ y2 ++ If(z, y1, y2)*)
+      s ++ If(z, y1, y2)
     | Mimp.While(e, s) ->
       let z, s1 = tr_expr e in
       let y1 = tr_seq s in
@@ -134,5 +142,5 @@ let tr_fdef fdef =
 (* Traduction directe *)
 let tr_prog p = {
     globals = Mimp.(p.globals);
-    functions = List.map tr_fdef Mimp.(p.functions)
+    functions = List.map (tr_fdef Mimp.(p.globals)) Mimp.(p.functions)
   }

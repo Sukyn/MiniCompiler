@@ -37,18 +37,31 @@ let tr_fdef fdef =
 
   let rec tr_instr = function
     | Aimp.Putchar vr ->
+       (*
        load1 vr
-       @@ Instr(Putchar(op1 vr))
+       @@
+       *)
+       Instr(Putchar(op1 vr))
     | Aimp.Read(vrd, x) ->
+     (*
        Instr(Read(dst vrd, Global x))
-      @@ save vrd
+      @@
+      *)
+      save vrd
     | Aimp.Write(x, vr) ->
        load1 vr
+       (*
        @@ Instr(Write(Global x, op1 vr)) (* TODO : CORRIGER LE GLOBAL !*)
+       *)
     | Aimp.Move(vrd, vr) ->
+      (*
        load1 vr
-      @@ Instr(Move(dst vrd, op1 vr))
+      @@
+      *)
+      Instr(Move(dst vrd, op1 vr))
+      (*
       @@ save vrd
+      *)
     | Aimp.Push vr ->
        load1 vr
        @@ Instr(Push(op1 vr))
@@ -62,7 +75,10 @@ let tr_fdef fdef =
           l'emplacement de pile
             *)
        Instr(Cst(dst vrd, n))
-       @@ save vrd
+       (*
+       @@
+       save vrd
+       *)
     | Aimp.Unop(vrd, op, vr) ->
         (* Le load correspond a l'inverse de save
           le but du jeu est de placer vr dans un registre
@@ -83,11 +99,17 @@ let tr_fdef fdef =
     | Aimp.Call(f, n) ->
         Instr(Call(f))
     | Aimp.If(vr, s1, s2) ->
+      (*
        load1 vr
-       @@ Instr(If(op1 vr, tr_seq s1, tr_seq s2))
+       @@
+       *)
+       Instr(If(op1 vr, tr_seq s1, tr_seq s2))
     | Aimp.While(s1, vr, s2) ->
+      (*
       load1 vr
-      @@ Instr(While(tr_seq s1, op1 vr, tr_seq s2))
+      @@
+      *)
+      Instr(While(tr_seq s1, op1 vr, tr_seq s2))
     | Aimp.Return ->
        Instr(Return)
 

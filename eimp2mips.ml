@@ -40,10 +40,11 @@ let tr_fdef fdef =
           in
           b test_label
           @@ label code_label
-          @@ tr_seq s1
-          @@ label test_label
-          @@ bnez t0 code_label
           @@ tr_seq s2
+          @@ label test_label
+          @@ tr_seq s1
+          @@ bnez r code_label
+
     | Return ->
         b return_label
 
@@ -57,7 +58,7 @@ let tr_fdef fdef =
   (*Stocker fp*)
   sw fp 0 sp @@ subi sp sp 4 @@
   (*Stocker ra*)
-  sw ra 0 sp @@ subi sp sp 4 
+  sw ra 0 sp @@ subi sp sp 4
   (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
   @@ addi fp sp 8
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)
