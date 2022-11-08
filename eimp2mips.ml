@@ -23,7 +23,7 @@ let tr_fdef fdef =
     | Binop(rd, Add, r1, r2) -> add rd r1 r2
     | Binop(rd, Mul, r1, r2) -> mul rd r1 r2
     | Binop(rd, Lt, r1, r2)  -> slt rd r1 r2
-    | Call(f)            -> b f
+    | Call(f)            ->  b f
     | If(r, s1, s2) ->
           let then_label = new_label()
           and end_label = new_label()

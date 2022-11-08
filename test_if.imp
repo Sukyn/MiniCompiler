@@ -1,0 +1,9 @@
+
+function main() {
+
+  if (10 < 100) {
+  putchar(46);
+  } else {
+  putchar(35);
+  }
+}

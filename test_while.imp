@@ -1,0 +1,7 @@
+
+function main() {
+
+  while (10 < 100) {
+  putchar(46);
+  }
+}

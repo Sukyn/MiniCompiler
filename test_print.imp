@@ -1,0 +1,7 @@
+
+function main() {
+  putchar(46);
+  putchar(35);
+  putchar(46);
+  putchar(35);
+}

@@ -39,7 +39,6 @@ let tr_fdef globals fdef  =
      locales et sera étendue à chaque création d'un nouveau registre
      virtuel. *)
   let vregs = ref Mimp.(fdef.locals) in
-  vregs := List.append globals !vregs;
   (* Fonction de génération de nouveaux registres virtuels.
      Renvoie le nouveau nom, et étend la liste. *)
   let counter = ref 0 in
@@ -68,6 +67,8 @@ let tr_fdef globals fdef  =
        else if List.mem x Mimp.(fdef.params) then
              let () = Printf.printf("%s") x in
              let r = new_vreg() in r, Nop ++ Move(r, x)
+       else if List.mem x globals then
+             x, Nop
        else
           let r = new_vreg() in r, Nop ++ Move(r, x)
 

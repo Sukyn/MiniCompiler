@@ -1,0 +1,13 @@
+var j;
+
+function main() {
+  var i;
+
+  j = 10;
+  if (j < 100) {
+  i = 46;
+  putchar(i);
+  } else {
+  
+  }
+}
