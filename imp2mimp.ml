@@ -39,7 +39,7 @@ let mk_mul e1 e2 = match e1, e2 with
    | Cst 1, e | e, Cst 1 -> e
    | Cst n1, Cst n2 -> Cst(n1 * n2)
 (*   | Cst 2, e1 | e1, Cst 2 -> Unop(Sll 1, e1) *) (* A faire : La puissance de 2 *)
-   | _, _ -> Binop(Mul, e1, e2
+   | _, _ -> Binop(Mul, e1, e2)
 
 let mk_comp e1 e2 = match e1, e2 with
   | Cst n1, Cst n2 -> Bool(n1 < n2)
@@ -59,7 +59,6 @@ let rec tr_expr = function
   | Imp.Binop(Add, e1, e2) -> mk_add (tr_expr e1) (tr_expr e2)
   | Imp.Binop(Mul, e1, e2) -> mk_mul (tr_expr e1) (tr_expr e2)
   | Imp.Binop(Lt, e1, e2) -> mk_comp (tr_expr e1) (tr_expr e2)
-  | Imp.Binop(op, e1, e2) -> Binop(tr_binop op, tr_expr e1, tr_expr e2)
   | Imp.Call(f, args) -> Call(f, List.map tr_expr args)
 
 (* Traduction directe *)

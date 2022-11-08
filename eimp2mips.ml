@@ -12,9 +12,9 @@ let tr_fdef fdef =
   let rec tr_instr = function
     | Putchar r          -> move a0 r @@ li v0 11 @@ syscall (* Squelette de base *)
     | Read(rd, Global x) -> la rd x @@ lw rd 0 rd (* Ok *)
-    | Read(rd, Stack i)  -> lw rd (sp+i) sp (* Ok *)
+    | Read(rd, Stack i)  -> lw sp i sp @@ lw rd 0 sp (* Ok *)
     | Write(Global x, r) -> la gp x @@ sw r 0 gp (* Ok *)
-    | Write(Stack i, r)  -> sw sp (sp+i) r (* Ok *)
+    | Write(Stack i, r)  -> lw gp i sp @@ sw gp 0 r (* Ok *)
     | Move(rd, r)        -> move rd r
     | Push r             -> sw r 0 sp @@ subi sp sp 4 (* Squelette de base *)
     | Pop n              -> addi sp sp (4*n) (* Squelette de base *)
@@ -28,8 +28,7 @@ let tr_fdef fdef =
           let then_label = new_label()
           and end_label = new_label()
           in
-          tr_expr r
-          @@ bnez r then_label
+          bnez r then_label
           @@ tr_seq s2
           @@ b end_label
           @@ label then_label
@@ -43,7 +42,6 @@ let tr_fdef fdef =
           @@ label code_label
           @@ tr_seq s1
           @@ label test_label
-          @@ tr_expr r
           @@ bnez t0 code_label
           @@ tr_seq s2
     | Return ->
@@ -57,9 +55,9 @@ let tr_fdef fdef =
 
   (* code de la fonction *)
   (*Stocker fp*)
-  push fp @@
+  sw fp 0 sp @@ subi sp sp 4 @@
   (*Stocker ra*)
-  psuh ra @@
+  sw ra 0 sp @@ subi sp sp 4 
   (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
   @@ addi fp sp 8
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)

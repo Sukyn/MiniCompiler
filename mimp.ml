@@ -62,7 +62,7 @@ let rec pp_expr = function
   | Var x -> x
   | Unop(Addi n, e) ->
      sprintf "(%s(+%i))" (pp_expr e) n
-  | Binop(op, e1, e2) -> 
+  | Binop(op, e1, e2) ->
      sprintf "(%s%s%s)" (pp_expr e1) (pp_binop op) (pp_expr e2)
   | Call(f, args) ->
      sprintf "%s(%s)" f (pp_args args)
@@ -115,7 +115,6 @@ let pp_program prog out_channel =
     decr margin;
     print "}\n\n"
   in
-  
+
   pp_vars prog.globals;
   List.iter pp_function prog.functions;
-  

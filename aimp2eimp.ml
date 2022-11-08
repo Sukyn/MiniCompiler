@@ -40,11 +40,11 @@ let tr_fdef fdef =
        load1 vr
        @@ Instr(Putchar(op1 vr))
     | Aimp.Read(vrd, x) ->
-       Instr(Read(dst vrd, x))
+       Instr(Read(dst vrd, Global x))
       @@ save vrd
     | Aimp.Write(x, vr) ->
        load1 vr
-       @@ Instr(Write(x, op1 vr))
+       @@ Instr(Write(Global x, op1 vr)) (* TODO : CORRIGER LE GLOBAL !*)
     | Aimp.Move(vrd, vr) ->
        load1 vr
       @@ Instr(Move(dst vrd, op1 vr))
@@ -89,7 +89,7 @@ let tr_fdef fdef =
       load1 vr
       @@ Instr(While(tr_seq s1, op1 vr, tr_seq s2))
     | Aimp.Return ->
-       Return
+       Instr(Return)
 
   and tr_seq = function
     | Aimp.Seq(s1, s2) -> Seq(tr_seq s1, tr_seq s2)

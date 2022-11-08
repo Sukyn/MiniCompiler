@@ -10,27 +10,32 @@ let () =
   (* Simplification et sélection d'instructions *)
   let mimp_prog = Imp2mimp.tr_program imp_prog in
   let output_file = (Filename.chop_suffix file ".imp") ^ ".mimp" in
+  Printf.printf("Imp -> Mimp done\n");
   let out = open_out output_file in
   Mimp.pp_program mimp_prog out;
   close_out out;
   (* Décomposition des expressions *)
   let aimp_prog = Mimp2aimp.tr_prog mimp_prog in
   let output_file = (Filename.chop_suffix file ".imp") ^ ".aimp" in
+  Printf.printf("Mimp -> Aimp done\n");
   let out = open_out output_file in
   Aimp.pp_program aimp_prog out;
   close_out out;
   (* Allocation de registres *)
   let eimp_prog = Aimp2eimp.tr_prog aimp_prog in
   let output_file = (Filename.chop_suffix file ".imp") ^ ".eimp" in
+  Printf.printf("Aimp -> Eimp done\n");
   let out = open_out output_file in
   Eimp.pp_program eimp_prog out;
   close_out out;
   (* Génération de code assembleur *)
   let asm = Eimp2mips.tr_prog eimp_prog in
   let output_file = (Filename.chop_suffix file ".imp") ^ ".asm" in
+  Printf.printf("Eimp -> Asm done\n");
   let out = open_out output_file in
   let outf = formatter_of_out_channel out in
   Mips.print_program outf asm;
+  Printf.printf("Ceci est notre programme");
   pp_print_flush outf ();
   close_out out;
   exit 0

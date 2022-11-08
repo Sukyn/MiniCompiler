@@ -62,8 +62,16 @@ let tr_fdef fdef =
     | Mimp.Var x ->
        (* Il faut distinguer ici entre variables locales, paramètres et
           variables globales. *)
-       if List.mem x !vregs then x, Nop
-       else let r = new_vreg() in r, Nop ++ Read(r, x)
+       print_endline x;
+       List.iter (Printf.printf "%s ") !vregs;
+       print_endline " VARS LOCALS ";
+       if List.mem x !vregs then
+             x, Nop
+       else if List.mem x Mimp.(fdef.params) then
+             x, Nop
+       else
+          let r = new_vreg() in r, Nop ++ Read(r, x)
+
     | Mimp.Unop(op, e) ->
        let r1, s1 = tr_expr e in
        let r = new_vreg() in
@@ -76,7 +84,11 @@ let tr_fdef fdef =
     | Mimp.Call(f, args) ->
        (* Il faut réaliser ici la convention d'appel : passer les arguments
           de la bonne manière, et renvoyer le résultat dans $v0. *)
-       "$v0", (List fold_left (fun s acc -> let r, t = tr_expr s in acc @@ t @@ Push r) Nop args) @@ Call(f, List.length args)
+      
+       "$v0", (List.fold_left (fun acc s ->
+                              let r, t = tr_expr s in
+                              acc @@ t ++ Push r)
+                                       Nop args) ++ Call(f, List.length args)
   in
 
   let rec tr_instr = function
@@ -85,7 +97,7 @@ let tr_fdef fdef =
        s ++ Putchar r
     | Mimp.Set(x, e) ->
        let z, s = tr_expr e in
-       s ++ Write(s, z)
+       s ++ Write(x, z)
     | Mimp.If(e, s1, s2) ->
       let z, s = tr_expr e in
       let y1 = tr_seq s1 in
@@ -94,7 +106,7 @@ let tr_fdef fdef =
     | Mimp.While(e, s) ->
       let z, s1 = tr_expr e in
       let y1 = tr_seq s in
-      s1 ++ While(s1, z, y1)
+      Nop ++ While(s1, z, y1)
     | Mimp.Return e ->
        (* Le résultat renvoyé doit être placé dans $v0. *)
       let z, s = tr_expr e in
