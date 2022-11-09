@@ -14,6 +14,7 @@ type mem_access =
 
 type instruction =
   | Putchar of reg
+  | Putint of int
   | Read    of reg * mem_access
   | Write   of mem_access * reg
   | Move    of reg * reg
@@ -72,6 +73,8 @@ let pp_program prog out_channel =
   let rec pp_instr = function
     | Putchar vr ->
        print "putchar %s;" vr
+   | Putint n ->
+      print "putint %i;" n
     | Read(vrd, a) ->
        print "%s <- *%s;" vrd (pp_mem_access a)
     | Write(a, vr) ->
@@ -82,7 +85,7 @@ let pp_program prog out_channel =
        print "%s <- %i;" vrd n
     | Unop(vrd, Addi n, vr) ->
        print "%s <- %s(+%i);" vrd vr n
-    | Binop(vrd, op, vr1, vr2) -> 
+    | Binop(vrd, op, vr1, vr2) ->
        print "%s <- %s %s %s;" vrd vr1 (pp_binop op) vr2
     | Call f ->
        print "call %s;" f
@@ -109,7 +112,7 @@ let pp_program prog out_channel =
   and pp_seq = function
     | Nop -> ()
     | Seq(s1, s2) -> pp_seq s1; pp_seq s2
-    | Instr i -> 
+    | Instr i ->
        print_margin(); pp_instr i; print "\n"
   in
 
@@ -129,7 +132,6 @@ let pp_program prog out_channel =
     decr margin;
     print "}\n\n"
   in
-  
+
   pp_vars prog.globals;
   List.iter pp_function prog.functions;
-  

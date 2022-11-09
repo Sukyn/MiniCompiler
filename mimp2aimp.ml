@@ -96,11 +96,20 @@ let tr_fdef globals fdef  =
 
   let rec tr_instr = function
     | Mimp.Putchar e ->
-       let r, s = tr_expr e in
-       s ++ Putchar r
+       (match e with
+       | Cst n -> Nop ++ Aimp.Putint n
+       | _ -> let r, s = tr_expr e in
+              s ++ Putchar r)
     | Mimp.Set(x, e) ->
        (match e with
        | Cst n -> Nop ++ Cst(x, n)
+       | Binop(op, e1, e2) ->
+         let r1, s1 = tr_expr e1 in
+         let r2, s2 = tr_expr e2 in
+         s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2)
+       | Unop(op, e) ->
+          let r1, s1 = tr_expr e in
+          s1 ++ Unop(x, tr_unop op, r1)
        | _ ->
          let z, s = tr_expr e in
          s ++ Move(x, z)

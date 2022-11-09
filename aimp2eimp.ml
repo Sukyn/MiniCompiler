@@ -42,6 +42,8 @@ let tr_fdef fdef =
        @@
        *)
        Instr(Putchar(op1 vr))
+    | Aimp.Putint n ->
+      Instr(Putint n)
     | Aimp.Read(vrd, x) ->
      (*
        Instr(Read(dst vrd, Global x))

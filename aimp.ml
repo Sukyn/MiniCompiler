@@ -29,6 +29,7 @@ type vreg = string
    paramètres de l'instruction. *)
 type instruction =
   | Putchar of vreg
+  | Putint of int
   (* Lecture de la valeur d'une variable ou d'un paramètre *)
   | Read    of vreg * string
   (* Mutation d'une variable *)
@@ -127,6 +128,8 @@ let pp_program prog out_channel =
     let rec pp_instr = function
       | Putchar vr ->
          print "putchar %s;" vr
+      | Putint n ->
+         print "putint %i;" n
       | Read(vrd, x) ->
          print "%s <- *%s;" vrd x
       | Write(x, vr) ->

@@ -70,6 +70,7 @@ module VSet = Set.Make(String)
      OUT[i] = IN[s1] u IN[s2]
  *)
 
+
 let liveness fdef =
   (* Table associant à chaque instruction l'ensemble des variables qui
      sont vivantes en sortie. Rappel : en AIMP, chaque instruction
@@ -131,7 +132,7 @@ let liveness fdef =
        VSet.diff (VSet.singleton rd) (VSet.union (VSet.singleton r1) (VSet.union (VSet.singleton r2) out))
     | Push r ->
        VSet.union (VSet.singleton r) out
-    | Pop _ ->
+    | Pop _ | Putint _ ->
        out
     | Call(_, n) ->
        (* Pour un appel de fonction :
@@ -278,7 +279,7 @@ let interference_graph fdef =
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
        Graph.add_edge rs rd Preference g
-    | Putchar _ | Write _ | Return | Push _ | Pop _ ->
+    | Putchar _ | Write _ | Return | Push _ | Pop _ | Putint _->
       (*TODO*)
        g
     | Call(_, _) ->
