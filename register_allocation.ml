@@ -279,7 +279,7 @@ let interference_graph fdef =
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
        Graph.add_edge rs rd Preference g
-    | Putchar _ | Write _ | Return | Push _ | Pop _ | Putint _->
+    | Putchar _ | Write _ | Return | Push _ | Pop _ | Putint _ ->
       (*TODO*)
        g
     | Call(_, _) ->
