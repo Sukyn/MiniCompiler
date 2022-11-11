@@ -52,24 +52,22 @@ let tr_fdef globals fdef  =
        | _ ->  Instr(Putchar(op1 vr)))
     | Aimp.Putint n ->
       Instr(Putint n)
+
     | Aimp.Read(vrd, x) ->
+      print_string x;
       if List.mem x globals then 
        Instr(Read(dst vrd, Global x))
       @@
         save vrd
     else
-      load1 x
-      @@
-        Instr(Move(dst vrd, op1 x)) 
-       @@
-        save vrd
+      load1 x @@ Instr(Move(dst vrd, op1 x)) @@ save vrd
         (**
         @@
         Instr(Move(dst vrd, op1 x)) 
         *)
        
     | Aimp.Write(x, vr) ->
-      
+      print_string x;
        if List.mem x globals then 
         load1 vr
         @@
@@ -77,16 +75,12 @@ let tr_fdef globals fdef  =
       else
         (*Instr(Move(dst x, op1 vr)) 
         @@*) 
-        load1 vr
-        @@
-        Instr(Move(dst x, op1 vr)) 
-         @@
-        save x
+        load1 vr @@ Instr(Move(dst x, op1 vr)) @@ save x
         
        
     | Aimp.Move(vrd, vr) ->
       
-      
+      load1 vr @@
       Instr(Move(dst vrd, op1 vr))
       
       @@ save vrd
@@ -131,7 +125,7 @@ let tr_fdef globals fdef  =
         @@ save vrd
   
     | Aimp.Call(f, n) ->
-        Instr(Call(f))
+        Instr(Call(f)) 
     | Aimp.If(vr, s1, s2) ->
       
        load1 vr
@@ -156,9 +150,10 @@ let tr_fdef globals fdef  =
     name = Aimp.(fdef.name);
     params = List.length Aimp.(fdef.params);
     locals = mx;
-    code = tr_seq Aimp.(fdef.code);
+    code = (* let i = ref 0 in
+            List.fold_left (fun acc x -> i := !i + 1; 
+                     acc @@ Instr(Write(Stack(- !i), Printf.sprintf "$a%i" !i))) Nop Aimp.(fdef.params) @@ *) (tr_seq Aimp.(fdef.code));
   }
-
 let tr_prog prog = {
     globals = Aimp.(prog.globals);
     functions = List.map (tr_fdef Aimp.(prog.globals)) Aimp.(prog.functions) ;

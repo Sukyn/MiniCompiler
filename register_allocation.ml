@@ -232,6 +232,7 @@ let interference_graph fdef =
             Graph.empty
             fdef.locals
   in
+
   (* La bibliothèque Graph donne une structure immuable. Les fonctions de
      construction du graphe renvoient donc le graphe construit. *)
 
@@ -470,7 +471,16 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   c := VMap.add "$v0" (Actual (Printf.sprintf "$v0")) !c;
   c := VMap.add "$t0" (Actual (Printf.sprintf "$t0")) !c;
   c := VMap.add "$t1" (Actual (Printf.sprintf "$t1")) !c;
-              
+  
+  c := VMap.add "$a1" (Actual (Printf.sprintf "$a1")) !c;
+  c := VMap.add "$a2" (Actual (Printf.sprintf "$a2")) !c;
+  c := VMap.add "$a3" (Actual (Printf.sprintf "$a3")) !c;
+  
+
+  List.iter (fun s -> (i := !i + 1;
+                        c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
+              ) fdef.params;
+
   (VMap.iter (fun s _ -> 
               if not (VMap.mem s !c) then 
               

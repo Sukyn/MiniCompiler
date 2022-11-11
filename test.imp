@@ -22,11 +22,11 @@ function main() {
       putchar(espace);
       j = j+1;
     }
-    putchar(print_return());
+    putchar(print_return(retour));
     i = i + 1;
   }
 }
 
-function print_return() {
-  return retour;
+function print_return(x) {
+  return x;
 }

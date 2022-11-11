@@ -62,11 +62,14 @@ let tr_fdef globals fdef  =
     | Mimp.Var x ->
        (* Il faut distinguer ici entre variables locales, paramètres et
           variables globales. *)
+          let i = ref 0 in 
        if List.mem x !vregs then
         let r = new_vreg() in r, Nop ++ Read(r, x)
-       else if List.mem x Mimp.(fdef.params) then
-             let () = Printf.printf("%s") x in
-             let r = new_vreg() in r, Nop ++ Read(r, x)
+       else if (
+                List.exists (fun s -> i := !i + 1; x == s) Mimp.(fdef.params)) then
+             let r = Printf.sprintf "$a%i" !i in
+             let () = Printf.printf "call argument %s\n" x in
+             r, Nop 
        else if List.mem x globals then
          let r = new_vreg() in r, Nop ++ Read(r, x)
        else
@@ -87,9 +90,11 @@ let tr_fdef globals fdef  =
        let i = ref 0 in
        "$v0", (List.fold_left (fun acc s -> i := !i + 1;
                               let r, t = tr_expr s in
-                              if !i < 5 then acc @@ t ++ Read ((Printf.sprintf "$a%i" !i), r)
+                              
+                              if !i < 5 then acc @@ t ++ Write((Printf.sprintf "$a%i" !i), r)
                                         else
                               acc @@ t ++ Push r)
+                              
                                        Nop args) ++ Call(f, List.length args)
   in
 
@@ -114,7 +119,6 @@ let tr_fdef globals fdef  =
        | _ ->
        *)
          let z, s = tr_expr e in
-         let () = Printf.printf "Set %s%s\n" x z in
          s ++ Write(x, z)
        (*
           )
