@@ -63,23 +63,23 @@ let tr_fdef globals fdef  =
        (* Il faut distinguer ici entre variables locales, paramètres et
           variables globales. *)
        if List.mem x !vregs then
-             x, Nop
+        let r = new_vreg() in r, Nop ++ Read(r, x)
        else if List.mem x Mimp.(fdef.params) then
              let () = Printf.printf("%s") x in
              let r = new_vreg() in r, Nop ++ Read(r, x)
        else if List.mem x globals then
-             x, Nop
+         let r = new_vreg() in r, Nop ++ Read(r, x)
        else
           let r = new_vreg() in r, Nop ++ Read(r, x)
 
     | Mimp.Unop(op, e) ->
        let r1, s1 = tr_expr e in
-       let r = new_vreg() in
+       let r = new_vreg() in 
        r, s1 ++ Unop(r, tr_unop op, r1)
     | Mimp.Binop(op, e1, e2) ->
        let r1, s1 = tr_expr e1 in
        let r2, s2 = tr_expr e2 in
-       let r = new_vreg() in
+       let r = new_vreg() in 
        r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2)
     | Mimp.Call(f, args) ->
        (* Il faut réaliser ici la convention d'appel : passer les arguments
@@ -101,7 +101,8 @@ let tr_fdef globals fdef  =
        | _ -> let r, s = tr_expr e in
               s ++ Putchar r)
     | Mimp.Set(x, e) ->
-       (match e with
+       (*
+      (match e with
        | Cst n -> Nop ++ Cst(x, n)
        | Binop(op, e1, e2) ->
          let r1, s1 = tr_expr e1 in
@@ -111,11 +112,15 @@ let tr_fdef globals fdef  =
           let r1, s1 = tr_expr e in
           s1 ++ Unop(x, tr_unop op, r1)
        | _ ->
+       *)
          let z, s = tr_expr e in
-         if List.mem x !vregs then s ++ Move(x, z)
-         else
+         let () = Printf.printf "Set %s%s\n" x z in
          s ++ Write(x, z)
-       )
+       (*
+          )
+        *)
+        
+       
 
     | Mimp.If(e, s1, s2) ->
       let z, s = tr_expr e in

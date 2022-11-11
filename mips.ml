@@ -142,7 +142,8 @@ let rec pr_asm fmt a =
       pr_asm fmt a2
 
 let print_program fmt p =
-  fprintf fmt ".text\n";
-  pr_asm fmt p.text;
   fprintf fmt ".data\n";
-  pr_asm fmt p.data
+  pr_asm fmt p.data;
+  fprintf fmt ".text\n";
+  pr_asm fmt p.text
+  

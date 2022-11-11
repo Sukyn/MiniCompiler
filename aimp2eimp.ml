@@ -12,8 +12,12 @@ let dst_reg = "$t0"
 let op1_reg = "$t0"
 let op2_reg = "$t1"
 
-let tr_fdef fdef =
-  let alloc, mx = allocation fdef in
+let tr_fdef globals fdef  =
+  let alloc, mx = allocation fdef globals in
+  let () = Graph.VMap.iter (fun x y -> 
+                        (match y with 
+                        | Stacked z -> Printf.printf "%s is a Stacked %i over %i\n" x z mx 
+                        | Actual z -> Printf.printf "%s is a Actual %s\n" x z)) alloc in
 
   let save vr = match Graph.VMap.find vr alloc with
     | Actual r  -> Nop
@@ -41,29 +45,52 @@ let tr_fdef fdef =
        load1 vr
        @@
        *)
-       Instr(Putchar(op1 vr))
+       load1 vr @@ 
+       (match vr with 
+       | "$v0" -> 
+            Instr(Putchar(vr))
+       | _ ->  Instr(Putchar(op1 vr)))
     | Aimp.Putint n ->
       Instr(Putint n)
     | Aimp.Read(vrd, x) ->
-     (*
+      if List.mem x globals then 
        Instr(Read(dst vrd, Global x))
       @@
-      *)
-      save vrd
-    | Aimp.Write(x, vr) ->
-       load1 vr
-       (*
-       @@ Instr(Write(Global x, op1 vr)) (* TODO : CORRIGER LE GLOBAL !*)
-       *)
-    | Aimp.Move(vrd, vr) ->
-      (*
-       load1 vr
+        save vrd
+    else
+      load1 x
       @@
-      *)
+        Instr(Move(dst vrd, op1 x)) 
+       @@
+        save vrd
+        (**
+        @@
+        Instr(Move(dst vrd, op1 x)) 
+        *)
+       
+    | Aimp.Write(x, vr) ->
+      
+       if List.mem x globals then 
+        load1 vr
+        @@
+       Instr(Write(Global x, op1 vr))
+      else
+        (*Instr(Move(dst x, op1 vr)) 
+        @@*) 
+        load1 vr
+        @@
+        Instr(Move(dst x, op1 vr)) 
+         @@
+        save x
+        
+       
+    | Aimp.Move(vrd, vr) ->
+      
+      
       Instr(Move(dst vrd, op1 vr))
-      (*
+      
       @@ save vrd
-      *)
+      
     | Aimp.Push vr ->
        load1 vr
        @@ Instr(Push(op1 vr))
@@ -76,7 +103,8 @@ let tr_fdef fdef =
           Sinon si c'est un emplacement de pile on met n dans t0 et on le save à
           l'emplacement de pile
             *)
-       Instr(Cst(dst vrd, n))
+
+               Instr(Cst(dst vrd, n)) @@ save vrd
        (*
        @@
        save vrd
@@ -94,23 +122,25 @@ let tr_fdef fdef =
        @@ Instr(Unop(dst vrd, tr_unop op, op1 vr))
        @@ save vrd
     | Aimp.Binop(vrd, op, vr1, vr2) ->
-       load1 vr1
+      
+           load1 vr1
         @@ load2 vr2
-        @@ Instr(Binop(dst vrd, tr_binop op, op1 vr1, op2 vr2))
+        @@ 
+        
+        Instr(Binop(dst vrd, tr_binop op, op1 vr1, op2 vr2))
         @@ save vrd
+  
     | Aimp.Call(f, n) ->
         Instr(Call(f))
     | Aimp.If(vr, s1, s2) ->
-      (*
+      
        load1 vr
        @@
-       *)
        Instr(If(op1 vr, tr_seq s1, tr_seq s2))
     | Aimp.While(s1, vr, s2) ->
-      (*
+      
       load1 vr
       @@
-      *)
       Instr(While(tr_seq s1, op1 vr, tr_seq s2))
     | Aimp.Return ->
        Instr(Return)
@@ -131,5 +161,5 @@ let tr_fdef fdef =
 
 let tr_prog prog = {
     globals = Aimp.(prog.globals);
-    functions = List.map tr_fdef Aimp.(prog.functions);
+    functions = List.map (tr_fdef Aimp.(prog.globals)) Aimp.(prog.functions) ;
   }

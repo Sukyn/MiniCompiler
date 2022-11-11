@@ -453,7 +453,7 @@ type register =
   | Actual  of string
   | Stacked of int
 
-let allocation (fdef: function_def): register Graph.VMap.t * int =
+let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   (* Calculer les vivacités, en déduire un graphe d'interférence,
      le colorier, puis en déduire :
      - une affectation concrète de chaque sommet à un registre réel
@@ -466,21 +466,25 @@ let allocation (fdef: function_def): register Graph.VMap.t * int =
   let g = interference_graph fdef in
   let c = ref VMap.empty in
 
-  (VMap.iter (fun s _ -> i := !i + 1; 
-              (match s with 
-              | "$v0" -> (c := VMap.add s (Actual (Printf.sprintf "$v0")) !c;)
-              | _ ->
-              if (!i < 4)
+  List.iter (fun x -> c := VMap.add x (Actual x) !c;) globals;
+  c := VMap.add "$v0" (Actual (Printf.sprintf "$v0")) !c;
+  c := VMap.add "$t0" (Actual (Printf.sprintf "$t0")) !c;
+  c := VMap.add "$t1" (Actual (Printf.sprintf "$t1")) !c;
+              
+  (VMap.iter (fun s _ -> 
+              if not (VMap.mem s !c) then 
+              
+                (i := !i + 1;
+                (*
+              if (!i < 8)
               then
-                (c := VMap.add s (Actual (Printf.sprintf "$a%i" !i)) !c;)
-              else if (!i < 12)
+                (c := VMap.add s (Actual (Printf.sprintf "$s%i" (!i))) !c;)
+              else if (!i < 14)
               then
-                (c := VMap.add s (Actual (Printf.sprintf "$s%i" (!i-4))) !c;)
-              else if (!i < 18)
-              then
-                (c := VMap.add s (Actual (Printf.sprintf "$t%i" (!i-10))) !c;)
+                (c := VMap.add s (Actual (Printf.sprintf "$t%i" (!i-6))) !c;)
               else
-                (c := VMap.add s (Stacked (!i - 18)) !c;)))
+                *)
+               (c := VMap.add s (Stacked !i) !c;)))
         g);
     
 
