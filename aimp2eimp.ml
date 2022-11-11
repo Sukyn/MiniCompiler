@@ -67,7 +67,7 @@ let tr_fdef globals fdef  =
         *)
        
     | Aimp.Write(x, vr) ->
-      print_string x;
+
        if List.mem x globals then 
         load1 vr
         @@
@@ -97,8 +97,12 @@ let tr_fdef globals fdef  =
           Sinon si c'est un emplacement de pile on met n dans t0 et on le save à
           l'emplacement de pile
             *)
-
-               Instr(Cst(dst vrd, n)) @@ save vrd
+            if List.mem vrd globals then 
+             Instr(GlobCst(vrd, n))
+            else
+              (match Graph.VMap.find vrd alloc with
+              | Actual r  -> Instr(Cst(r, n))
+              | Stacked i -> Instr(DirCst(Stack(-i-2), n)))
        (*
        @@
        save vrd

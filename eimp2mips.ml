@@ -19,6 +19,8 @@ let tr_fdef fdef =
     | Move(rd, r)        -> move rd r
     | Push r             -> sw r 0 sp @@ subi sp sp 4 (* Squelette de base *)
     | Pop n              -> addi sp sp (4*n) (* Squelette de base *)
+    | GlobCst(rd, n)      -> la gp rd @@ li t0 n @@ sw t0 0 gp
+    | DirCst(Stack i, n) -> li gp n @@ sw gp (4*i) sp 
     | Cst(rd, n)         -> li rd n (* Squelette de base *)
     | Unop(rd, Addi n, r)    -> addi rd r n (* Squelette de base *)
     | Binop(rd, Add, r1, r2) -> add rd r1 r2

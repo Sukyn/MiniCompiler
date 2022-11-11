@@ -20,6 +20,8 @@ type instruction =
   | Move    of reg * reg
   | Push    of reg
   | Pop     of int
+  | GlobCst of reg * int
+  | DirCst  of mem_access * int
   | Cst     of reg * int
   | Unop    of reg * unop * reg
   | Binop   of reg * binop * reg * reg
@@ -83,6 +85,10 @@ let pp_program prog out_channel =
        print "%s <- %s;" vrd vr
     | Cst(vrd, n) ->
        print "%s <- %i;" vrd n
+   | GlobCst(vrd, n) ->
+   print "%s <- %i;" vrd n
+    | DirCst(vrd, n) ->
+      print "%s <- %i;" (pp_mem_access vrd) n
     | Unop(vrd, Addi n, vr) ->
        print "%s <- %s(+%i);" vrd vr n
     | Binop(vrd, op, vr1, vr2) ->

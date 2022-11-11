@@ -106,9 +106,10 @@ let tr_fdef globals fdef  =
        | _ -> let r, s = tr_expr e in
               s ++ Putchar r)
     | Mimp.Set(x, e) ->
-       (*
+       
       (match e with
        | Cst n -> Nop ++ Cst(x, n)
+       (*
        | Binop(op, e1, e2) ->
          let r1, s1 = tr_expr e1 in
          let r2, s2 = tr_expr e2 in
@@ -116,13 +117,14 @@ let tr_fdef globals fdef  =
        | Unop(op, e) ->
           let r1, s1 = tr_expr e in
           s1 ++ Unop(x, tr_unop op, r1)
+          *)
        | _ ->
-       *)
+       
          let z, s = tr_expr e in
          s ++ Write(x, z)
-       (*
+       
           )
-        *)
+        
         
        
 
