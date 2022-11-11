@@ -66,11 +66,11 @@ let tr_fdef globals fdef  =
              x, Nop
        else if List.mem x Mimp.(fdef.params) then
              let () = Printf.printf("%s") x in
-             let r = new_vreg() in r, Nop ++ Move(r, x)
+             let r = new_vreg() in r, Nop ++ Read(r, x)
        else if List.mem x globals then
              x, Nop
        else
-          let r = new_vreg() in r, Nop ++ Move(r, x)
+          let r = new_vreg() in r, Nop ++ Read(r, x)
 
     | Mimp.Unop(op, e) ->
        let r1, s1 = tr_expr e in
@@ -112,14 +112,15 @@ let tr_fdef globals fdef  =
           s1 ++ Unop(x, tr_unop op, r1)
        | _ ->
          let z, s = tr_expr e in
-         s ++ Move(x, z)
+         if List.mem x !vregs then s ++ Move(x, z)
+         else
+         s ++ Write(x, z)
        )
 
     | Mimp.If(e, s1, s2) ->
       let z, s = tr_expr e in
       let y1 = tr_seq s1 in
       let y2 = tr_seq s2 in
-      (*y1 @@ y2 ++ If(z, y1, y2)*)
       s ++ If(z, y1, y2)
     | Mimp.While(e, s) ->
       let z, s1 = tr_expr e in
@@ -128,7 +129,7 @@ let tr_fdef globals fdef  =
     | Mimp.Return e ->
        (* Le résultat renvoyé doit être placé dans $v0. *)
       let z, s = tr_expr e in
-      s ++ Move(z, "$v0") ++ Return
+      s ++ Move("$v0", z) ++ Return
     | Mimp.Expr e ->
        let r, s = tr_expr e in
        s

@@ -23,6 +23,11 @@ function main() {
     }
     print_return();
     i = i + 1;
+    if (10 < i) {
+      return i;
+    } else {
+
+    }
   }
 }
 

@@ -462,10 +462,14 @@ let allocation (fdef: function_def): register Graph.VMap.t * int =
    *)
   (* color (interference_graph fdef) 100000*)
 
-  let i = ref (-1) in
+  let i = ref (0) in
   let g = interference_graph fdef in
   let c = ref VMap.empty in
-  (VMap.iter (fun s _ -> i := !i + 1;
+
+  (VMap.iter (fun s _ -> i := !i + 1; 
+              (match s with 
+              | "$v0" -> (c := VMap.add s (Actual (Printf.sprintf "$v0")) !c;)
+              | _ ->
               if (!i < 4)
               then
                 (c := VMap.add s (Actual (Printf.sprintf "$a%i" !i)) !c;)
@@ -476,8 +480,15 @@ let allocation (fdef: function_def): register Graph.VMap.t * int =
               then
                 (c := VMap.add s (Actual (Printf.sprintf "$t%i" (!i-10))) !c;)
               else
-                (c := VMap.add s (Stacked (!i - 18)) !c;))
-     g);
+                (c := VMap.add s (Stacked (!i - 18)) !c;)))
+        g);
+    
+
+
+    (*
+    (VMap.iter (fun s _ -> i := !i + 1;
+               (c := VMap.add s (Stacked !i) !c;))
+       g); *)
   !c, !i
 
 

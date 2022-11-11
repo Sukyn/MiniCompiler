@@ -12,10 +12,10 @@ let tr_fdef fdef =
   let rec tr_instr = function
     | Putchar r          -> move a0 r @@ li v0 11 @@ syscall (* Squelette de base *)
     | Putint n           -> li a0 n @@ li v0 11 @@ syscall
-    | Read(rd, Global x) -> la rd x @@ lw rd 0 rd (* Ok *)
-    | Read(rd, Stack i)  -> lw sp i sp @@ lw rd 0 sp (* Ok *)
-    | Write(Global x, r) -> la gp x @@ sw r 0 gp (* Ok *)
-    | Write(Stack i, r)  -> lw gp i sp @@ sw gp 0 r (* Ok *)
+    | Read(rd, Global x) -> move rd x (* la rd x @@ lw rd 0 rd *) (* Ok *)
+    | Read(rd, Stack i)  -> lw sp (i*4) sp @@ lw rd 0 sp @@ lw sp (-i*4) sp (* Ok *)
+    | Write(Global x, r) -> move x r (* la gp x @@ sw r 0 gp *) (* Ok *)
+    | Write(Stack i, r)  -> lw gp (i*4) sp @@ sw gp 0 r @@ lw sp (-i*4) sp (* Ok *)
     | Move(rd, r)        -> move rd r
     | Push r             -> sw r 0 sp @@ subi sp sp 4 (* Squelette de base *)
     | Pop n              -> addi sp sp (4*n) (* Squelette de base *)
