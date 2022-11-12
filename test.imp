@@ -21,12 +21,17 @@ function main() {
       }
       putchar(espace);
       j = j+1;
+      retour = 10;
     }
-    putchar(print_return(retour));
+    putchar(print_return(4, 14, 2, 3, retour, 5, 6));
     i = i + 1;
+    espace = 32;
   }
 }
 
-function print_return(x) {
-  return x;
+function print_return(x, y, z, h , k, r, m) {
+  retour = x+y+z;
+  if (k < retour+1){
+    return k;
+    } else { }
 }

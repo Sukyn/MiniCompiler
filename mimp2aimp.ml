@@ -65,11 +65,10 @@ let tr_fdef globals fdef  =
           let i = ref 0 in 
        if List.mem x !vregs then
         let r = new_vreg() in r, Nop ++ Read(r, x)
-       else if (
-                List.exists (fun s -> i := !i + 1; x == s) Mimp.(fdef.params)) then
-             let r = Printf.sprintf "$a%i" !i in
-             let () = Printf.printf "call argument %s\n" x in
-             r, Nop 
+       else if (List.exists (fun s -> i := !i + 1; x == s) Mimp.(fdef.params)) then
+                  (if (!i > List.length fdef.params - 4) then  (Printf.sprintf "$a%i" !i), Nop
+                  else (Printf.sprintf "#%i" (List.length fdef.params - !i) ), Nop )
+  
        else if List.mem x globals then
          let r = new_vreg() in r, Nop ++ Read(r, x)
        else
@@ -91,9 +90,9 @@ let tr_fdef globals fdef  =
        "$v0", (List.fold_left (fun acc s -> i := !i + 1;
                               let r, t = tr_expr s in
                               
-                              if !i < 5 then acc @@ t ++ Write((Printf.sprintf "$a%i" !i), r)
+                              if !i < 4 then t ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
                                         else
-                              acc @@ t ++ Push r)
+                              t ++ Push r @@ acc)
                               
                                        Nop args) ++ Call(f, List.length args)
   in

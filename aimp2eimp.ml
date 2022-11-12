@@ -14,6 +14,7 @@ let op2_reg = "$t1"
 
 let tr_fdef globals fdef  =
   let alloc, mx = allocation fdef globals in
+  let () = Printf.printf "%s ------------------\n" fdef.name in 
   let () = Graph.VMap.iter (fun x y -> 
                         (match y with 
                         | Stacked z -> Printf.printf "%s is a Stacked %i over %i\n" x z mx 
@@ -45,6 +46,7 @@ let tr_fdef globals fdef  =
        load1 vr
        @@
        *)
+       
        load1 vr @@ 
        (match vr with 
        | "$v0" -> 
@@ -54,7 +56,10 @@ let tr_fdef globals fdef  =
       Instr(Putint n)
 
     | Aimp.Read(vrd, x) ->
+      print_string vrd;
+      print_string (" is Read from");
       print_string x;
+      print_string "\n";
       if List.mem x globals then 
        Instr(Read(dst vrd, Global x))
       @@
@@ -67,7 +72,10 @@ let tr_fdef globals fdef  =
         *)
        
     | Aimp.Write(x, vr) ->
-
+      print_string x;
+      print_string (" is Written to");
+      print_string vr;
+      print_string "\n";
        if List.mem x globals then 
         load1 vr
         @@
@@ -79,18 +87,28 @@ let tr_fdef globals fdef  =
         
        
     | Aimp.Move(vrd, vr) ->
-      
+      print_string vrd;
+      print_string (" is Moved from");
+      print_string vr;
+      print_string "\n";
       load1 vr @@
       Instr(Move(dst vrd, op1 vr))
       
       @@ save vrd
       
     | Aimp.Push vr ->
+      print_string vr;
+      print_string (" is Pushed");
+      print_string "\n";
        load1 vr
        @@ Instr(Push(op1 vr))
     | Aimp.Pop n ->
        Instr(Pop n)
     | Aimp.Cst(vrd, n) ->
+      print_string vrd;
+      print_string (" is Cst ");
+      print_int n;
+      print_string "\n";
         (* L'objectif c'est de placer n dans l'emplacement qui réalise vrd
           Soit vrd est réalisé par un registre réel et on met juste n dans ce registre réel
               et dans ce cas le save est un nop
@@ -108,6 +126,10 @@ let tr_fdef globals fdef  =
        save vrd
        *)
     | Aimp.Unop(vrd, op, vr) ->
+      print_string vrd;
+      print_string (" is Unop from");
+      print_string vr;
+      print_string "\n";
         (* Le load correspond a l'inverse de save
           le but du jeu est de placer vr dans un registre
           et de faire Unop en prenant ce registre en paramètre
@@ -120,7 +142,12 @@ let tr_fdef globals fdef  =
        @@ Instr(Unop(dst vrd, tr_unop op, op1 vr))
        @@ save vrd
     | Aimp.Binop(vrd, op, vr1, vr2) ->
-      
+      print_string vrd;
+      print_string (" is Binop from");
+      print_string vr1;
+      print_string (" and ");
+      print_string vr2;
+      print_string "\n";
            load1 vr1
         @@ load2 vr2
         @@ 
@@ -129,16 +156,18 @@ let tr_fdef globals fdef  =
         @@ save vrd
   
     | Aimp.Call(f, n) ->
-        Instr(Call(f)) 
+      print_string f;
+      print_string (" is Called");
+      print_string "\n";
+      if (n > 3) then
+        Instr(Call(f)) @@ Instr(Pop(n-3)) 
+      else
+        Instr(Call(f))
     | Aimp.If(vr, s1, s2) ->
-      
-       load1 vr
-       @@
+      load1 vr @@
        Instr(If(op1 vr, tr_seq s1, tr_seq s2))
     | Aimp.While(s1, vr, s2) ->
       
-      load1 vr
-      @@
       Instr(While(tr_seq s1, op1 vr, tr_seq s2))
     | Aimp.Return ->
        Instr(Return)

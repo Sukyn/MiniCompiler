@@ -476,9 +476,12 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   c := VMap.add "$a2" (Actual (Printf.sprintf "$a2")) !c;
   c := VMap.add "$a3" (Actual (Printf.sprintf "$a3")) !c;
   
+  
+  List.iter (fun s -> (Printf.printf "local : %s\n" s);) fdef.locals;
 
   List.iter (fun s -> (i := !i + 1;
-                        c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
+                        if !i < 4 then (c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
+                        else c := VMap.add s (Stacked (List.length fdef.locals + !i -3)) !c;)
               ) fdef.params;
 
   (VMap.iter (fun s _ -> 
@@ -494,7 +497,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                 (c := VMap.add s (Actual (Printf.sprintf "$t%i" (!i-6))) !c;)
               else
                 *)
-               (c := VMap.add s (Stacked !i) !c;)))
+               (c := VMap.add s (Stacked (!i - List.length fdef.params - 2)) !c;)))
         g);
     
 
@@ -503,7 +506,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
     (VMap.iter (fun s _ -> i := !i + 1;
                (c := VMap.add s (Stacked !i) !c;))
        g); *)
-  !c, !i
+  !c, (!i-List.length fdef.params)
 
 
 

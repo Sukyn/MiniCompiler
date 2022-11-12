@@ -13,14 +13,14 @@ let tr_fdef fdef =
     | Putchar r          -> move a0 r @@ li v0 11 @@ syscall (* Squelette de base *)
     | Putint n           -> li a0 n @@ li v0 11 @@ syscall
     | Read(rd, Global x) -> la gp x @@ lw rd 0 gp (* Ok *)
-    | Read(rd, Stack i)  -> lw rd (4*i) sp 
+    | Read(rd, Stack i)  -> lw rd (-4*i) sp 
     | Write(Global x, r) -> la gp x @@ sw r 0 gp  (* Ok *)
-    | Write(Stack i, r)  -> sw r (4*i) sp 
+    | Write(Stack i, r)  -> sw r (-4*i) sp 
     | Move(rd, r)        -> move rd r
     | Push r             -> sw r 0 sp @@ subi sp sp 4 (* Squelette de base *)
     | Pop n              -> addi sp sp (4*n) (* Squelette de base *)
     | GlobCst(rd, n)      -> la gp rd @@ li t0 n @@ sw t0 0 gp
-    | DirCst(Stack i, n) -> li gp n @@ sw gp (4*i) sp 
+    | DirCst(Stack i, n) -> li gp n @@ sw gp (-4*i) sp 
     | Cst(rd, n)         -> li rd n (* Squelette de base *)
     | Unop(rd, Addi n, r)    -> addi rd r n (* Squelette de base *)
     | Binop(rd, Add, r1, r2) -> add rd r1 r2
@@ -56,7 +56,7 @@ let tr_fdef fdef =
     | Instr i     -> tr_instr i
     | Seq(s1, s2) -> tr_seq s1 @@ tr_seq s2
   in
-
+  
   (* code de la fonction *)
   (*Stocker fp*)
   sw fp 0 sp @@ subi sp sp 4 @@
@@ -64,6 +64,7 @@ let tr_fdef fdef =
   sw ra 0 sp @@ subi sp sp 4
   (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
   @@ addi fp sp 8
+  
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)
   @@ addi sp sp (-4 * fdef.locals)
   @@ tr_seq fdef.code
