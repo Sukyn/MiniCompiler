@@ -62,7 +62,7 @@ let tr_fdef globals fdef  =
     | Mimp.Var x ->
        (* Il faut distinguer ici entre variables locales, paramètres et
           variables globales. *)
-          let i = ref 0 in 
+       let i = ref 0 in 
        if List.mem x !vregs then
         let r = new_vreg() in r, Nop ++ Read(r, x)
        else if (List.exists (fun s -> i := !i + 1; x == s) Mimp.(fdef.params)) then
@@ -75,24 +75,75 @@ let tr_fdef globals fdef  =
           let r = new_vreg() in r, Nop ++ Read(r, x)
 
     | Mimp.Unop(op, e) ->
-       let r1, s1 = tr_expr e in
+       
        let r = new_vreg() in 
-       r, s1 ++ Unop(r, tr_unop op, r1)
+       (match e with
+       | Var x -> r, if List.mem x globals then
+                       let r1, s1 = tr_expr e in
+                       s1 ++ Unop(r, tr_unop op, r1)
+                    else
+                         Nop ++ Unop(r, tr_unop op, x)
+       | _ -> let r1, s1 = tr_expr e in
+          r, s1 ++ Unop(r, tr_unop op, r1))
     | Mimp.Binop(op, e1, e2) ->
-       let r1, s1 = tr_expr e1 in
-       let r2, s2 = tr_expr e2 in
-       let r = new_vreg() in 
-       r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2)
+       if e1 = e2 then 
+         let r = new_vreg() in
+          (match e1 with 
+         | Var x -> if List.mem x globals then 
+                      let r1, s1 = tr_expr e1 in
+                      r, s1 ++ Binop(r, tr_binop op, r1, r1)
+                    else
+                      r, Nop ++ Binop(r, tr_binop op, x, x)
+          | _ -> 
+            let r1, s1 = tr_expr e1 in
+            r1, s1 ++ Binop(r1, tr_binop op, r1, r1))
+       else 
+          
+          
+          let r = new_vreg() in
+          (match e1, e2 with 
+          | Var x, Var y -> if List.mem x globals then
+                                    let r1, s1 = tr_expr e1 in
+                                    (if List.mem y globals 
+                                    then  let r2, s2 = tr_expr e2 in
+                                          (r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2))
+                                    else r, s1 ++ Binop(r, tr_binop op, r1, y))
+                               else if List.mem y globals then 
+                                   let r2, s2 = tr_expr e2 in
+                                   r, s2 ++ Binop(r, tr_binop op, x, r2)
+                               else r, Nop ++ Binop(r, tr_binop op, x, y)
+          | Var x, _ ->  let r2, s2 = tr_expr e2 in
+            
+                         if List.mem x globals 
+                         then let r1, s1 = tr_expr e1 in
+                              r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2) 
+                         else
+                              r, s2 ++ Binop(r, tr_binop op, x, r2)
+          | _, Var y -> let r1, s1 = tr_expr e1 in
+                        if List.mem y globals 
+                        then let r2, s2 = tr_expr e2 in
+                            r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2) 
+                         else r, s1 ++ Binop(r, tr_binop op, r1, y)
+          | _ ->  
+            let r1, s1 = tr_expr e1 in
+            let r2, s2 = tr_expr e2 in
+              r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2))
     | Mimp.Call(f, args) ->
        (* Il faut réaliser ici la convention d'appel : passer les arguments
           de la bonne manière, et renvoyer le résultat dans $v0. *)
        let i = ref 0 in
        "$v0", (List.fold_left (fun acc s -> i := !i + 1;
-                              let r, t = tr_expr s in
-                              
-                              if !i < 4 then t ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
-                                        else
-                              t ++ Push r @@ acc)
+              
+                              if !i < 4 then 
+                                  (match s with 
+                                  | Mimp.Cst n -> Nop ++ Cst((Printf.sprintf "$a%i" !i), n) @@ acc
+                                  | _ -> let r, t = tr_expr s in t ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
+                                  )
+                              else
+                                 (match s with 
+                                 | Mimp.Cst n -> Nop ++ Cst(Printf.sprintf "$t0", n) ++ Push "$t0" @@ acc
+                                 | _ -> let r, t = tr_expr s in
+                              t ++ Push r @@ acc))
                               
                                        Nop args) ++ Call(f, List.length args)
   in
@@ -102,22 +153,29 @@ let tr_fdef globals fdef  =
     | Mimp.Putchar e ->
        (match e with
        | Cst n -> Nop ++ Aimp.Putint n
+       | Var x -> Nop ++ Putchar x
        | _ -> let r, s = tr_expr e in
               s ++ Putchar r)
     | Mimp.Set(x, e) ->
        
       (match e with
        | Cst n -> Nop ++ Cst(x, n)
+       | Var s -> Nop ++ Move(x, s)
        (*
        | Binop(op, e1, e2) ->
          let r1, s1 = tr_expr e1 in
          let r2, s2 = tr_expr e2 in
-         s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2)
-       | Unop(op, e) ->
-          let r1, s1 = tr_expr e in
-          s1 ++ Unop(x, tr_unop op, r1)
-          *)
-       | _ ->
+         s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2) *)
+
+         
+        | Unop(op, e') ->
+          (match e' with 
+          | Var s -> if s = x then Nop ++ Unop(x, tr_unop op, x)
+                    else let z, s = tr_expr e in
+                         s ++ Write(x, z)
+          | _ -> let z, s = tr_expr e in
+                 s ++ Write(x, z))
+        | _ ->
        
          let z, s = tr_expr e in
          s ++ Write(x, z)
@@ -138,8 +196,13 @@ let tr_fdef globals fdef  =
       Nop ++ While(s1, z, y1)
     | Mimp.Return e ->
        (* Le résultat renvoyé doit être placé dans $v0. *)
-      let z, s = tr_expr e in
-      s ++ Move("$v0", z) ++ Return
+       (match e with 
+       | Cst n -> Nop ++ Cst("$v0", n) ++ Return
+       | Var x -> Nop ++ Move("$v0", x) ++ Return
+       | _ -> 
+            let z, s = tr_expr e in
+            s ++ Move("$v0", z) ++ Return
+       )
     | Mimp.Expr e ->
        let r, s = tr_expr e in
        s
