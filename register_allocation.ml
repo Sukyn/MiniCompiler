@@ -149,13 +149,15 @@ let liveness fdef =
           - les registres $ai
           - le registre $v0
         *)
+
+        
         (VSet.diff (VSet.union (VSet.singleton "$v0") out) 
                (VSet.union 
                   (VSet.union 
                     (VSet.union 
                       (VSet.union 
                         (VSet.union 
-                          (VSet.union 
+                          (VSet.union  
                             (VSet.union 
                               (VSet.union 
                                 (VSet.union 
@@ -168,7 +170,7 @@ let liveness fdef =
                                 (VSet.singleton "$t6"))
                               (VSet.singleton "$t7"))
                             (VSet.singleton "$t8"))
-                          (VSet.singleton "$t9"))
+                          (VSet.singleton "$t9")) 
                         (VSet.singleton "$a0"))
                       (VSet.singleton "$a1"))
                     (VSet.singleton "$a2"))
@@ -261,7 +263,7 @@ let liveness fdef =
    types d'arêtes à la même paire (r, rd), on ne conserve que l'arête
    d'interférence.
  *)
-let interference_graph fdef =
+let rec interference_graph fdef =
   (* Table de hachage contenant les informations de vivacité en sortie
      de chaque instruction, qu'on consultera pour appliquer le critère
      précédent. *)
@@ -303,7 +305,9 @@ let interference_graph fdef =
       interférences trouvées dans l'instruction [i], de numéro [n].
    *)
   and instr n i g = 
+  
   VSet.iter (fun s -> Printf.printf "%s is alive at step %i\n" s n;) (Hashtbl.find live_out n);
+  
   match i with
      
     | Read(rd, _) | Cst(rd, _) | Unop(rd, _, _) | Binop(rd, _, _, _) ->
@@ -323,11 +327,18 @@ let interference_graph fdef =
     | While(s1, _, s2) ->
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
-       Graph.add_edge rs rd Preference g
+      let out = Hashtbl.find live_out n in
+       Graph.add_edge rs rd Preference (VSet.fold (* fold : itérateur avec accumulateur *)
+                                        (fun r g' -> if r <> rd then
+                                                        Graph.add_edge r rd Conflict g'
+                                                      else
+                                                        g')
+                                        out
+                                        g)
     | Putchar _ | Write _ | Return | Push _ | Pop _ | Putint _ ->
        g
     | Call(_, _) ->
-       g
+      g
   in
 
   (* Pour calculer le graphe d'interférence d'une fonction, il suffit
@@ -481,9 +492,9 @@ let color g (k: int) globals original: color * int =
                                         )
                                       ) !g in
 
-          g := Graph.remove_prefs !first !g;
-          g := Graph.merge !second !first !g;
-          to_merge := VMap.add !second !first !to_merge;
+          g := Graph.remove_prefs !second !g;
+          g := Graph.merge !first !second !g;
+          to_merge := VMap.add !first !second !to_merge;
          
           simplify g c to_merge original;
           
@@ -577,12 +588,11 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
        ou un emplacement de pile,
      - le nombre d'emplacements de pile utilisés.
    *)
-  (* color (interference_graph fdef) 100000*)
-
+ 
   let i = ref (0) in
   let g = interference_graph fdef in
 
-  
+  (*
   (VMap.iter (fun s _ -> 
                         (VSet.iter 
                           (fun x -> (Printf.printf "%s is in conflict with %s\n" s x);
@@ -591,40 +601,58 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                           (fun x -> Printf.printf "%s is in pref with %s\n" s x;
                           ) (Graph.neighbours s Preference g)); 
               ) g);
-  
+  *)
   let c = ref VMap.empty in
 
   let x = ref g in 
   x := Graph.remove_vertex "$v0" !x;
+
+  (*
+  x := Graph.remove_vertex "$s0" !x;
+  x := Graph.remove_vertex "$s1" !x;
+  x := Graph.remove_vertex "$s2" !x;
+  x := Graph.remove_vertex "$s3" !x;
+  x := Graph.remove_vertex "$s4" !x;
+  x := Graph.remove_vertex "$s5" !x;
+  x := Graph.remove_vertex "$s6" !x;
+  x := Graph.remove_vertex "$s7" !x;
+  *)
   x := Graph.remove_vertex "$t0" !x;
   x := Graph.remove_vertex "$t1" !x;
-  x := Graph.remove_vertex "*$a1" !x;
+  x := Graph.remove_vertex "$t2" !x;
+  x := Graph.remove_vertex "$t3" !x;
+  x := Graph.remove_vertex "$t4" !x;
+  x := Graph.remove_vertex "$t5" !x;
+  x := Graph.remove_vertex "$t6" !x;
+  x := Graph.remove_vertex "$t7" !x;
+  x := Graph.remove_vertex "$t8" !x;
+  x := Graph.remove_vertex "$t9" !x;
+  x := Graph.remove_vertex "$a1" !x;
   x := Graph.remove_vertex "$a2" !x;
   x := Graph.remove_vertex "$a3" !x;
 
   let col, n = (color x 10 globals !x) in
-
-  print_colors col;
+  
   (VMap.iter (fun s i -> 
               if not (VMap.mem s !c) then 
-                (*
-              if (!i < 8)
-              then
-                (c := VMap.add s (Actual (Printf.sprintf "$s%i" (!i))) !c;)
-              else if (!i < 14)
-              then
-                (c := VMap.add s (Actual (Printf.sprintf "$t%i" (!i-6))) !c;)
-              else
-                *)
-               (c := VMap.add s (Stacked (i - 2)) !c;))
+                
+                (if (i < 8) then
+                  (c := VMap.add s (Actual (Printf.sprintf "$t%i" (i+2))) !c;)
+                else
+                  (c := VMap.add s (Stacked (6-i)) !c;)))
         col);
     
   List.iter (fun s -> (i := !i + 1;
             if !i < 4 then (c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
-            else c := VMap.add s (Stacked (n + !i -3)) !c;)
+            else c := VMap.add s (Stacked (n + 7 + !i)) !c;)
                   ) fdef.params;
 
   List.iter (fun x -> c := VMap.add x (Actual x) !c;) globals;
+  print_colors col;
+  VMap.iter (fun s k ->
+          match k with 
+          | Actual v -> Printf.printf "%s is linked with Actual %s\n" s v;
+          | Stacked i -> Printf.printf "%s is linked with Stacked %i\n" s i;) !c;
   
   c := VMap.add "$v0" (Actual (Printf.sprintf "$v0")) !c;
   c := VMap.add "$t0" (Actual (Printf.sprintf "$t0")) !c;
@@ -633,235 +661,26 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   c := VMap.add "$a1" (Actual (Printf.sprintf "$a1")) !c;
   c := VMap.add "$a2" (Actual (Printf.sprintf "$a2")) !c; 
   c := VMap.add "$a3" (Actual (Printf.sprintf "$a3")) !c;
-
-
-    (*
-    (VMap.iter (fun s _ -> i := !i + 1;
-               (c := VMap.add s (Stacked !i) !c;))
-       g); *)
+  
+  c := VMap.add "$t2" (Actual (Printf.sprintf "$t2")) !c;
+  c := VMap.add "$t3" (Actual (Printf.sprintf "$t3")) !c;
+  c := VMap.add "$t4" (Actual (Printf.sprintf "$t4")) !c;
+  c := VMap.add "$t5" (Actual (Printf.sprintf "$t5")) !c;
+  c := VMap.add "$t6" (Actual (Printf.sprintf "$t6")) !c;
+  c := VMap.add "$t7" (Actual (Printf.sprintf "$t7")) !c;
+  c := VMap.add "$t8" (Actual (Printf.sprintf "$t8")) !c;
+  c := VMap.add "$t9" (Actual (Printf.sprintf "$t9")) !c;
+  
+  (*
+  c := VMap.add "$s0" (Actual (Printf.sprintf "$s0")) !c;
+  c := VMap.add "$s1" (Actual (Printf.sprintf "$s1")) !c;
+  c := VMap.add "$s2" (Actual (Printf.sprintf "$s2")) !c;
+  c := VMap.add "$s3" (Actual (Printf.sprintf "$s3")) !c;
+  c := VMap.add "$s4" (Actual (Printf.sprintf "$s4")) !c;
+  c := VMap.add "$s5" (Actual (Printf.sprintf "$s5")) !c;
+  c := VMap.add "$s6" (Actual (Printf.sprintf "$s6")) !c;
+  c := VMap.add "$s7" (Actual (Printf.sprintf "$s7")) !c;
+  *)
 
   !c, n
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-(*
-
-
-
-
-
-open Aimp
-open Graph
-
-module VSet = Set.Make(String)
-
-type register =
-  | Actual  of string
-  | Stacked of int
-
-let liveness fdef =
-  let liveness = Hashtbl.create 64 in
-  (* sequence s out ->
-     en supposant que les variables vivantes en sortie de [s]
-      sont données par [out], calcule et renvoie les variables
-     vivantes en entrée de [s]
-     Note : effet de bord : met à jour la table liveness pour
-        toutes les instructions vues lors du calcul*)
-  let rec sequence s out = match s with
-    | Nop -> out
-    | Instr(n, i) ->
-       Hashtbl.replace liveness n out;
-       instr i out
-    | Seq(s1, s2) ->
-       sequence s1 (sequence s2 out)
- (* instr i out ->
-    en supposant que les variables vivantes en sortie de [i]
-     sont données par [out], calcule et renvoie les variables
-    vivantes en entrée de [i]
-    Note : effet de bord : met à jour la table liveness pour
-      toutes les instructions vues lors du calcul*)
-  and instr i out = match i with
-    | Putchar r | Write(_, r) ->
-       VSet.add r out
-    | Read(rd, _) | Cst(rd, _) ->
-       VSet.remove rd out
-    | Move(rd, r) | Unop(rd, _, r) ->
-       VSet.add r (VSet.remove rd out)
-    | Binop(rd, _, r1, r2) ->
-      VSet.remove rd (VSet.add r1 (VSet.add r2 out))
-    | Push r ->
-       VSet.add r out
-    | Pop _ ->
-       out
-    | Call(_, n) ->
-       out
-    | Return ->
-       VSet.empty
-    | If(r, s1, s2) ->
-       let live_in_body_2 = sequence s2 out in
-       sequence s1 (VSet.add r live_in_body_2)
-    | While(st, r, s) ->
-       let live_in_body = sequence s out in
-       let live_in_test = sequence st (VSet.add r live_in_body) in
-       let live_in_body = sequence s live_in_test in
-       sequence st (VSet.add r live_in_body)
-  in
-
-  ignore(sequence fdef.code VSet.empty);
-  (* Si le résultat précédent n'est pas VSet.empty, on a risque d'accès à
-     des variables non initialisées. *)
-  liveness
-
-let v0 = "$v0"
-
-let interference_graph fdef =
-  let live_out = liveness fdef in
-  let g = List.fold_left (fun g x -> Graph.add_vertex x g) Graph.empty fdef.locals in
-  let rec seq s g = match s with
-    | Nop -> g
-    | Instr(n, i) -> instr n i g
-    | Seq(s1, s2) -> seq s1 (seq s2 g)
-  and instr n i g = match i with
-    | Read(rd, _) | Cst(rd, _) | Unop(rd, _, _) | Binop(rd, _, _, _) ->
-        (* ajouter à g une arète entre rd et chaque registre virtuel vivant en sortie *)
-        let out = Hashtbl.find live_out n in
-        VSet.fold
-          (fun r g' -> if r <> rd then Graph.add_edge r rd Conflict g' else g')
-          out
-          g
-    | If(_, s1, s2) ->
-        seq s1 (seq s2 g)
-    | While(s1, _, s2) ->
-        let out = Hashtbl.find live_out n in
-        seq s1 (seq s2
-        (VSet.fold
-          (fun r g' -> VSet.fold (fun r' g'' -> (Graph.add_edge r' r Conflict g''))) (* jsp *)
-          out
-          g))
-    | Move(rd, rs) ->
-       Graph.add_edge r rd Preference g
-    | Putchar _ | Write _ | Return | Push _ | Pop _ ->
-       g
-    | Call(_, _) ->
-       g
-  in
-  seq fdef.code g
-
-type color = int VMap.t
-
-
-(* Renvoie la plus petit couleur non utilisée par l'ensemble [v]. *)
-let choose_color v colors =
-
-  List.find (fun s c -> s c) v colors
-
-  let george x y g =
-    (* Tous les voisins de r1 de degré > K sont aussi
-     des voisins de r2 *)
-    failwith "not implemented"
-
-
-  and simplify g =
-    select (VSet.find (not has_pref s && degree s < k) g) g
-
-  and coalesce g =
-    let x y = VMap.find2 () in
-    (* Chercher 2 sommets liés par une arête de pref fusionnables *)
-    if x <> null then
-      simplify (merge_vertices x y g)
-    else freeze g
-  and freeze g =
-    (* Chercher un sommet de degré < K et enlever ses arêtes de pref *)
-    let x = VMap.find (fun s -> degree s < k) g in
-    if x <> null then simplify (remove_pref s g)
-    else spill g
-  and spill g =
-    (* Choisir un sommet peu utilisé, fort degré, into select v*)
-    let x = get_le_meilleur_sommet in
-    select x g
-  and select x g =
-    let new_g = remove_vertex x g in
-    let new_s = simplify new_g in
-    choose_color x new_s
-  in
-  g
-  (*simplify g*)
-
-
-
-let print_colors c =
-  Printf.(printf "Coloration : \n";
-          VMap.iter (printf "  %s: %i\n") c)
-
-let allocation (fdef: function_def): register Graph.VMap.t * int =
-  Graph.VMap.empty, 1
-
-
-
-
-
-
-  *)

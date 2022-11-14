@@ -1,0 +1,40 @@
+var retour;
+
+function main() {
+  var i;
+  var arg;
+  var arg_b;
+  var j;
+  var espace;
+
+  arg = 10;
+  
+  i = 0;
+  retour = 10;
+  espace = 32;
+  while (i < return_arg(arg+1)) {
+    j = 0;
+    while (j < return_arg(arg+1)) {
+      if (i*i + j*j < return_arg(arg)*return_arg(arg)) {
+        putchar(46);
+      } else {
+        putchar(35);
+      }
+      putchar(espace);
+      j = j+1;
+      retour = 10;
+    }
+    putchar(print_return(4, 4, 2, 3, retour, 5, 6));
+    i = i + 1;
+    espace = 32;
+  }
+}
+
+function print_return(x, y, z, h , k, r, m) {
+  return k;
+}
+
+
+function return_arg(arg) {
+  return arg;
+}

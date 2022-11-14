@@ -15,13 +15,13 @@ let op2_reg = "$t1"
 let tr_fdef globals fdef  =
   let alloc, mx = allocation fdef globals in
 
-
+  (*
   let () = Printf.printf "%s ------------------\n" fdef.name in 
   let () = Graph.VMap.iter (fun x y -> 
                         (match y with 
                         | Stacked z -> Printf.printf "%s is a Stacked %i over %i\n" x z mx 
                         | Actual z -> Printf.printf "%s is a Actual %s\n" x z)) alloc in
-
+  *)
   let save vr = match Graph.VMap.find vr alloc with
     | Actual r  -> Nop
     | Stacked i -> Instr(Write(Stack(-i-2), dst_reg))
@@ -44,12 +44,15 @@ let tr_fdef globals fdef  =
 
   let rec tr_instr = function
     | Aimp.Putchar vr ->
+        if List.mem vr globals then Instr(Read(op1_reg, Global vr)) @@ Instr(Putchar(op1_reg))
+        else
        load1 vr @@ 
        (match vr with 
        | "$v0" -> 
             Instr(Putchar(vr))
        | _ ->  Instr(Putchar(op1 vr)))
     | Aimp.Putint n ->
+      
       Instr(Putint n)
 
     | Aimp.Read(vrd, x) ->
@@ -137,16 +140,14 @@ let tr_fdef globals fdef  =
           @@ save vrd
   
         else 
-        load1 vr1
-        @@ load2 vr2
-        @@ Instr(Binop(dst vrd, tr_binop op, op1 vr1, op2 vr2))
+        load2 vr1
+        @@ load1 vr2
+        @@ Instr(Binop(dst vrd, tr_binop op, op2 vr1, op1 vr2))
         @@ save vrd
   
     | Aimp.Call(f, n) ->
-      if (n > 3) then
-        Instr(Call(f)) @@ Instr(Pop(n-3)) 
-      else
-        Instr(Call(f))
+      
+      Instr(Call(f)) 
     | Aimp.If(vr, s1, s2) ->
             
           load1 vr @@

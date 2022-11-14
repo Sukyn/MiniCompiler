@@ -130,20 +130,27 @@ let tr_fdef globals fdef  =
        (* Il faut réaliser ici la convention d'appel : passer les arguments
           de la bonne manière, et renvoyer le résultat dans $v0. *)
        let i = ref 0 in
-       "$v0", (List.fold_left (fun acc s -> i := !i + 1;
-              
-                              if !i < 4 then 
-                                  (match s with 
-                                  | Mimp.Cst n -> Nop ++ Cst((Printf.sprintf "$a%i" !i), n) @@ acc
-                                  | _ -> let r, t = tr_expr s in t ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
-                                  )
-                              else
-                                 (match s with 
-                                 | Mimp.Cst n -> Nop ++ Cst(Printf.sprintf "$t0", n) ++ Push "$t0" @@ acc
-                                 | _ -> let r, t = tr_expr s in
-                              t ++ Push r @@ acc))
-                              
-                                       Nop args) ++ Call(f, List.length args)
+       "$v0",       let s =
+                        (List.fold_left (fun acc s -> i := !i + 1;
+
+                        if !i < 4 then 
+                            (match s with 
+                            | Mimp.Cst n -> Nop ++ Push (Printf.sprintf "$a%i" !i) ++ Cst((Printf.sprintf "$a%i" !i), n) @@ acc
+                            | _ -> let r, t = tr_expr s in t ++ Push (Printf.sprintf "$a%i" !i) ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
+                            )
+                        else
+                          (match s with 
+                          | Mimp.Cst n -> Nop ++ Cst(Printf.sprintf "$t0", n) ++ Push "$t0" @@ acc
+                          | _ -> let r, t = tr_expr s in
+                        t ++ Push r @@ acc))
+                        
+                                Nop args) 
+                    in
+                            
+                      List.fold_left (fun acc s -> i := !i + 1; if !i < 4 then (Nop ++ Push (Printf.sprintf "$a%i" !i)) @@ acc else acc) Nop [0; 0; 0; 0] 
+                    @@ s
+                    ++ Call(f, List.length args)
+                   
   in
 
 

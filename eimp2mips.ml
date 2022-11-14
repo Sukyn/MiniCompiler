@@ -8,7 +8,8 @@ let new_label =
 let tr_fdef fdef =
 
   let return_label = new_label() in
-
+  let push r =
+    sw r 0 sp @@ subi sp sp 4 in
   let rec tr_instr = function
     | Putchar r          -> move a0 r @@ li v0 11 @@ syscall (* Squelette de base *)
     | Putint n           -> li a0 n @@ li v0 11 @@ syscall
@@ -17,7 +18,7 @@ let tr_fdef fdef =
     | Write(Global x, r) -> la gp x @@ sw r 0 gp  (* Ok *)
     | Write(Stack i, r)  -> sw r (-4*i) sp 
     | Move(rd, r)        -> move rd r
-    | Push r             -> sw r 0 sp @@ subi sp sp 4 (* Squelette de base *)
+    | Push r             -> push r
     | Pop n              -> addi sp sp (4*n) (* Squelette de base *)
     | GlobCst(rd, n)      -> la gp rd @@ li t0 n @@ sw t0 0 gp
     | DirCst(Stack i, n) -> li gp n @@ sw gp (-4*i) sp 
@@ -59,20 +60,68 @@ let tr_fdef fdef =
   in
   
   (* code de la fonction *)
+  if fdef.name = "main" then 
+        (*Stocker fp*)
+      push fp 
+      (*Stocker ra*)
+      @@ push ra
+      @@ move fp sp    (* Désallocation de la pile *)
+      (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
+      @@ tr_seq fdef.code
+      @@ label return_label
+      @@ lw ra (4) sp (* Récupération de l'adresse de retour *)
+      @@ lw fp (8) sp
+      @@ move sp fp    (* Désallocation de la pile *)
+      @@ jr ra
+  else 
+  
+    push t9 
+    @@ push t8
+    @@ push t7
+    @@ push t6
+    @@ push t5
+    @@ push t4
+    @@ push t3
+    @@ push t2
+    @@ push fp 
+    @@ push ra
+    @@ move fp sp 
+    (*
+  sw t9 (-4*0) sp
+  @@ sw t8 (-4*1) sp
+  @@ sw t7 (-4*2) sp
+  @@ sw t6 (-4*3) sp
+  @@ sw t5 (-4*4) sp
+  @@ sw t4 (-4*5) sp
+  @@ sw t3 (-4*6) sp
+  @@ sw t2 (-4*7) sp
   (*Stocker fp*)
-  sw fp 0 sp @@ subi sp sp 4 @@
+  @@ sw fp (-4*8) sp
   (*Stocker ra*)
-  sw ra 0 sp @@ subi sp sp 4
+  @@ sw ra (-4*9) sp
   (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
-  @@ addi fp sp 8
+  @@ subi fp sp (4*8) 
   
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)
-  @@ addi sp sp (-4 * fdef.locals)
+  @@ subi sp sp (4*10) *)
   @@ tr_seq fdef.code
   @@ label return_label
+  @@ lw ra (4*1) sp (* Récupération de l'adresse de retour *)
+  
+  @@ lw fp (4*2) sp
+  @@ lw t2 (4*3) sp
+  @@ lw t3 (4*4) sp
+  @@ lw t4 (4*5) sp
+  @@ lw t5 (4*6) sp
+  @@ lw t6 (4*7) sp
+  @@ lw t7 (4*8) sp
+  @@ lw t8 (4*9) sp
+  @@ lw t9 (4*10) sp
+  @@ lw a1 (4*11) sp
+  @@ lw a2 (4*12) sp
+  @@ lw a3 (4*13) sp
   @@ move sp fp    (* Désallocation de la pile *)
-  @@ lw ra (-4) fp (* Récupération de l'adresse de retour *)
-  @@ lw fp 0 fp    (* Restauration du pointeur de base de l'appelant *)
+  
   @@ jr ra
 
 
