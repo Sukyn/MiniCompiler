@@ -124,7 +124,8 @@ let liveness fdef =
     | Putchar r ->
        (* Attention : réaliser putchar en MIPS nécessite d'écrire dans les
           registres réels $a0 et $v0. *)
-       VSet.union (VSet.singleton r) out
+       VSet.union (VSet.singleton r) (VSet.diff out (VSet.union (VSet.singleton "$a0") (VSet.singleton "$v0")))
+       
     | Move(rd, r) | Unop(rd, _, r) ->
        (* Le registre [r] est lu, le registre [rd] est modifié. *)
        VSet.union (VSet.singleton r) (VSet.diff out (VSet.singleton rd))
@@ -132,7 +133,9 @@ let liveness fdef =
       VSet.union (VSet.singleton r1) (VSet.union (VSet.singleton r2) (VSet.diff out (VSet.singleton rd)))
     | Push r ->
        VSet.union (VSet.singleton r) out
-    | Pop _ | Putint _ ->
+    | Putint _ ->
+          VSet.diff out (VSet.singleton "$v0")
+    | Pop _ ->
        out
     | Call(_, n) ->
        (* Pour un appel de fonction :
@@ -146,8 +149,31 @@ let liveness fdef =
           - les registres $ai
           - le registre $v0
         *)
-        (* TODO *)
-        VSet.union (VSet.singleton "$v0") out
+        (VSet.diff (VSet.union (VSet.singleton "$v0") out) 
+               (VSet.union 
+                  (VSet.union 
+                    (VSet.union 
+                      (VSet.union 
+                        (VSet.union 
+                          (VSet.union 
+                            (VSet.union 
+                              (VSet.union 
+                                (VSet.union 
+                                  (VSet.union 
+                                   (VSet.union 
+                                    (VSet.singleton "$t2")
+                                      (VSet.singleton "$t3"))
+                                    (VSet.singleton "$t4"))
+                                  (VSet.singleton "$t5"))
+                                (VSet.singleton "$t6"))
+                              (VSet.singleton "$t7"))
+                            (VSet.singleton "$t8"))
+                          (VSet.singleton "$t9"))
+                        (VSet.singleton "$a0"))
+                      (VSet.singleton "$a1"))
+                    (VSet.singleton "$a2"))
+                  (VSet.singleton "$a3")))
+              
     | Return ->
        (* Rappel de la convention : on renvoie la valeur contenue dans $v0.
           Ce registre est donc considéré comme lu.
@@ -158,12 +184,26 @@ let liveness fdef =
           - les registres $si
         *)
         (* TODO *)
-       VSet.singleton "$v0"
+       (VSet.union (VSet.singleton "$v0")
+            (VSet.union 
+              (VSet.union 
+                (VSet.union 
+                  (VSet.union 
+                    (VSet.union 
+                      (VSet.union 
+                        (VSet.union 
+                          (VSet.singleton "$s0")
+                          (VSet.singleton "$s1"))
+                        (VSet.singleton "$s2"))
+                      (VSet.singleton "$s3"))
+                    (VSet.singleton "$s4"))
+                  (VSet.singleton "$s5"))
+                (VSet.singleton "$s6"))
+              (VSet.singleton "$s7")))
     | If(r, s1, s2) ->
        (* En sortie du test de la valeur de [r], les blocs [s1] et [s2]
           sont deux futurs possibles. Les variables vivantes dans ces deux
           blocs doivent donc être combinées. *)
-       (* VSet.union (VSet.singleton r)*)
         VSet.diff (VSet.union (sequence s1 out) (sequence s2 out)) (VSet.singleton r)
     | While(st, r, s) ->
        (* La boucle induit une dépendance circulaire dans les équations
@@ -281,15 +321,12 @@ let interference_graph fdef =
     | If(_, s1, s2) ->
        seq s1 (seq s2 g)
     | While(s1, _, s2) ->
-       (* TODO *)
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
        Graph.add_edge rs rd Preference g
     | Putchar _ | Write _ | Return | Push _ | Pop _ | Putint _ ->
-      (*TODO*)
        g
     | Call(_, _) ->
-      (*TODO*)
        g
   in
 
