@@ -334,7 +334,23 @@ type color = int VMap.t
     couleur définie dans [colors].
  *)
 let choose_color (v: VSet.t) (colors: color): int =
-  failwith "not implemented"
+          let j = ref 0 in
+          let flag = ref true in 
+          while !flag 
+          do 
+            
+            j := !j+1;
+            if (VSet.for_all (fun n -> (* Printf.printf "Trying %s and %s\n" s n;*)
+              
+                                      try 
+                                        let couleur = VMap.find n colors in 
+                                        couleur != !j
+                                        with
+                                        | Not_found -> true)                 
+                            v) then 
+                                (flag := false;)
+          done;
+          !j
 
 (** Fonction principale de coloriage.
 
@@ -483,30 +499,9 @@ let color g (k: int) globals original: color * int =
    *)
   and select s c g original =
 
-    (*    if not (List.mem s globals) then *)
-          let j = ref 0 in
-          let flag = ref true in 
-          
           let ngh = (Graph.neighbours s Conflict original) in
-
-          while !flag 
-          do 
-            
-            j := !j+1;
-            if (VSet.for_all (fun n -> (* Printf.printf "Trying %s and %s\n" s n;*)
-              
-                                      try 
-                                        let couleur = VMap.find n !c in 
-                                        couleur != !j
-                                        with
-                                        | Not_found -> true)                 
-                            ngh) then 
-                                (flag := false;)
-          done;
-          
-
-          c := VMap.add s !j !c;
-          
+          let j = choose_color ngh !c in
+          c := VMap.add s j !c;
           Graph.remove_vertex s g
 
   in

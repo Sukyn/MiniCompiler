@@ -98,8 +98,6 @@ let tr_fdef globals fdef  =
             let r1, s1 = tr_expr e1 in
             r1, s1 ++ Binop(r1, tr_binop op, r1, r1))
        else 
-          
-          
           let r = new_vreg() in
           (match e1, e2 with 
           | Var x, Var y -> if List.mem x globals then
@@ -151,36 +149,72 @@ let tr_fdef globals fdef  =
 
   let rec tr_instr = function
     | Mimp.Putchar e ->
-      
        (match e with
        | Cst n -> Nop ++ Putint n
        | Var x -> Nop ++ Putchar x
        | _ -> let r, s = tr_expr e in
               s ++ Putchar r)
     | Mimp.Set(x, e) ->
-       
-      (match e with
-       | Cst n -> Nop ++ Cst(x, n)
-       | Var s -> Nop ++ Move(x, s)
-       (*
-       | Binop(op, e1, e2) ->
-         let r1, s1 = tr_expr e1 in
-         let r2, s2 = tr_expr e2 in
-         s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2) *)
+       if List.mem x globals then 
+            let z, s = tr_expr e in
+          s ++ Write(x, z)
+       else 
 
-         
-        | Unop(op, e') ->
-          (match e' with 
-          | Var s -> if s = x then Nop ++ Unop(x, tr_unop op, x)
-                    else let z, s = tr_expr e in
-                         s ++ Write(x, z)
-          | _ -> let z, s = tr_expr e in
-                 s ++ Write(x, z))
-        | _ ->
-       
-         let z, s = tr_expr e in
-         s ++ Write(x, z)
-       
+          (match e with
+          | Cst n -> Nop ++ Cst(x, n)
+          | Var s -> Nop ++ Move(x, s)
+          
+          | Binop(op, e1, e2) ->
+                  if e1 = e2 then 
+                    (match e1 with 
+                    | Var s -> if List.mem s globals then 
+                                let r1, s1 = tr_expr e1 in
+                                s1 ++ Binop(x, tr_binop op, r1, r1)
+                              else
+                                Nop ++ Binop(x, tr_binop op, s, s)
+                    | _ -> 
+                      let r1, s1 = tr_expr e1 in
+                      s1 ++ Binop(x, tr_binop op, r1, r1))
+                  else 
+                    (match e1, e2 with 
+                    | Var s, Var y -> if List.mem s globals then
+                                              let r1, s1 = tr_expr e1 in
+                                              (if List.mem y globals 
+                                              then  let r2, s2 = tr_expr e2 in
+                                                    s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2)
+                                              else s1 ++ Binop(x, tr_binop op, r1, y))
+                                          else if List.mem y globals then 
+                                              let r2, s2 = tr_expr e2 in
+                                              s2 ++ Binop(x, tr_binop op, s, r2)
+                                          else Nop ++ Binop(x, tr_binop op, s, y)
+                    | Var s, _ ->  let r2, s2 = tr_expr e2 in
+                      
+                                    if List.mem s globals 
+                                    then let r1, s1 = tr_expr e1 in
+                                        s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2) 
+                                    else
+                                        s2 ++ Binop(x, tr_binop op, s, r2)
+                    | _, Var y -> let r1, s1 = tr_expr e1 in
+                                  if List.mem y globals 
+                                  then let r2, s2 = tr_expr e2 in
+                                      s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2) 
+                                    else s1 ++ Binop(x, tr_binop op, r1, y)
+                    | _ ->  
+                      let r1, s1 = tr_expr e1 in
+                      let r2, s2 = tr_expr e2 in
+                        s1 @@ s2 ++ Binop(x, tr_binop op, r1, r2))
+          | Unop(op, e') ->
+            (match e' with 
+            | Var s -> if s = x then Nop ++ Unop(x, tr_unop op, x)
+                      else let z, s = tr_expr e in
+                          s ++ Write(x, z)
+            | _ -> let z, s = tr_expr e in
+                  s ++ Write(x, z))
+          | _ ->
+        
+          let z, s = tr_expr e in
+          s ++ Move(x, z)
+          
           )
         
         
