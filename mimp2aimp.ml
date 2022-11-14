@@ -64,7 +64,7 @@ let tr_fdef globals fdef  =
           variables globales. *)
        let i = ref 0 in 
        if List.mem x !vregs then
-        let r = new_vreg() in r, Nop ++ Read(r, x)
+        let r = new_vreg() in r, Nop ++ Move(r, x)
        else if (List.exists (fun s -> i := !i + 1; x == s) Mimp.(fdef.params)) then
                   (if (!i > List.length fdef.params - 4) then  (Printf.sprintf "$a%i" !i), Nop
                   else (Printf.sprintf "#%i" (List.length fdef.params - !i) ), Nop )
@@ -72,7 +72,7 @@ let tr_fdef globals fdef  =
        else if List.mem x globals then
          let r = new_vreg() in r, Nop ++ Read(r, x)
        else
-          let r = new_vreg() in r, Nop ++ Read(r, x)
+          let r = new_vreg() in r, Nop ++ Move(r, x)
 
     | Mimp.Unop(op, e) ->
        
@@ -151,8 +151,9 @@ let tr_fdef globals fdef  =
 
   let rec tr_instr = function
     | Mimp.Putchar e ->
+      
        (match e with
-       | Cst n -> Nop ++ Aimp.Putint n
+       | Cst n -> Nop ++ Putint n
        | Var x -> Nop ++ Putchar x
        | _ -> let r, s = tr_expr e in
               s ++ Putchar r)
@@ -186,13 +187,14 @@ let tr_fdef globals fdef  =
        
 
     | Mimp.If(e, s1, s2) ->
-      let z, s = tr_expr e in
-      let y1 = tr_seq s1 in
-      let y2 = tr_seq s2 in
-      s ++ If(z, y1, y2)
+      
+              let z, s = tr_expr e in
+              let y1 = tr_seq s1 in
+              let y2 = tr_seq s2 in
+              s ++ If(z, y1, y2)
     | Mimp.While(e, s) ->
-      let z, s1 = tr_expr e in
       let y1 = tr_seq s in
+      let z, s1 = tr_expr e in
       Nop ++ While(s1, z, y1)
     | Mimp.Return e ->
        (* Le résultat renvoyé doit être placé dans $v0. *)

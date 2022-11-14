@@ -127,9 +127,9 @@ let liveness fdef =
        VSet.union (VSet.singleton r) out
     | Move(rd, r) | Unop(rd, _, r) ->
        (* Le registre [r] est lu, le registre [rd] est modifié. *)
-       VSet.union (VSet.singleton r) (VSet.diff (VSet.singleton rd) out)
+       VSet.union (VSet.singleton r) (VSet.diff out (VSet.singleton rd))
     | Binop(rd, _, r1, r2) ->
-       VSet.diff (VSet.singleton rd) (VSet.union (VSet.singleton r1) (VSet.union (VSet.singleton r2) out))
+      VSet.union (VSet.singleton r1) (VSet.union (VSet.singleton r2) (VSet.diff out (VSet.singleton rd)))
     | Push r ->
        VSet.union (VSet.singleton r) out
     | Pop _ | Putint _ ->
@@ -163,7 +163,8 @@ let liveness fdef =
        (* En sortie du test de la valeur de [r], les blocs [s1] et [s2]
           sont deux futurs possibles. Les variables vivantes dans ces deux
           blocs doivent donc être combinées. *)
-       VSet.union (VSet.singleton r) (sequence s1 (sequence s2 out))
+       (* VSet.union (VSet.singleton r)*)
+        VSet.diff (VSet.union (sequence s1 out) (sequence s2 out)) (VSet.singleton r)
     | While(st, r, s) ->
        (* La boucle induit une dépendance circulaire dans les équations
           de vivacité. Cela nécessite de calculer un point fixe à ces
@@ -225,6 +226,8 @@ let interference_graph fdef =
      de chaque instruction, qu'on consultera pour appliquer le critère
      précédent. *)
   let live_out = liveness fdef in
+
+  
   (* Initialisation d'un graphe sans arêtes, avec un sommet pour chaque
      variables locale (ie. chaque registre virtuel). *)
   let g = List.fold_left
@@ -259,7 +262,10 @@ let interference_graph fdef =
       renvoie le graphe obtenu en ajoutant au graphe [g] les
       interférences trouvées dans l'instruction [i], de numéro [n].
    *)
-  and instr n i g = match i with
+  and instr n i g = 
+  VSet.iter (fun s -> Printf.printf "%s is alive at step %i\n" s n;) (Hashtbl.find live_out n);
+  match i with
+     
     | Read(rd, _) | Cst(rd, _) | Unop(rd, _, _) | Binop(rd, _, _, _) ->
        (* Dans chacun de ces cas l'instruction écrit uniquement dans le
           registre [rd]. On ajouter à g une arête entre rd et chaque
@@ -276,7 +282,6 @@ let interference_graph fdef =
        seq s1 (seq s2 g)
     | While(s1, _, s2) ->
        (* TODO *)
-       let out = Hashtbl.find live_out n in
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
        Graph.add_edge rs rd Preference g
@@ -387,13 +392,13 @@ let color g (k: int) globals original: color * int =
       Heuristique : parmi les sommets sélectionnables, prendre un sommet
       de faible degré.
    *)
-  let rec simplify g c i to_merge original =
+  let rec simplify g c to_merge original =
      
 
       try let s, _ = VMap.find_first (fun s -> Graph.degree s !g < k && not (Graph.has_pref s !g)) !g in
-          g := select s i c !g original;
+          g := select s c !g original;
       with 
-      | Not_found -> coalesce g c i to_merge original; 
+      | Not_found -> coalesce g c to_merge original; 
       
 
   (** Recherche de deux sommets à fusionner.
@@ -403,7 +408,7 @@ let color g (k: int) globals original: color * int =
       fusionnant [x] avec [y], puis on propage à [x] la couleur qui a
       été affectée à [y]. Dans le cas contraire, on passe à [freeze]
    *)
-  and coalesce g c i to_merge original =
+  and coalesce g c to_merge original =
 
       try 
 
@@ -427,23 +432,23 @@ let color g (k: int) globals original: color * int =
           g := Graph.merge !second !first !g;
           to_merge := VMap.add !second !first !to_merge;
          
-          simplify g c i to_merge original;
+          simplify g c to_merge original;
           
        with 
-          | Not_found -> freeze g c i to_merge original;
+          | Not_found -> freeze g c to_merge original;
  
   (** Abandon d'arêtes de préférence.
       On cherche un sommet de degré < K. S'il existe un tel sommet [x],
       celui-ci a nécessairement des arêtes de préférence. On les retire
       et on revient à [simplify]. Sinon, on passe à [spill].
    *)
-  and freeze g c i to_merge original =
+  and freeze g c to_merge original =
       try 
           let s, _ = VMap.find_first (fun s -> Graph.degree s !g < k) !g in
           g := Graph.remove_prefs s !g;
-          simplify g c i to_merge original;
+          simplify g c to_merge original;
       with 
-      | Not_found -> spill g i c to_merge original;
+      | Not_found -> spill g c to_merge original;
   (** Sacrifice d'un sommet.
       On se résigne à ne (peut-être) pas pouvoir donner à l'un des sommets
       une couleur < K. On choisit un sommet [x] et on appelle [select x g].
@@ -467,16 +472,16 @@ let color g (k: int) globals original: color * int =
         supprimer de nombreuses arêtes et faciliter le coloriage des autres
         registres.
    *)
-  and spill g i c to_merge original =
+  and spill g c to_merge original =
       let s, _ = VMap.find_first (fun s -> true) !g in 
-      g := select s i c !g original;
-      simplify g c i to_merge original;
+      g := select s c !g original;
+      simplify g c to_merge original;
 
   (** Mettre de côté un sommet [x] et colorier récursivement le graphe [g']
       ainsi obtenu. À la fin, on choisit une couleur pour [x] compatible
       avec les couleurs sélectionnées pour ses voisins.
    *)
-  and select s i c g original =
+  and select s c g original =
 
     (*    if not (List.mem s globals) then *)
           let j = ref 0 in
@@ -488,7 +493,9 @@ let color g (k: int) globals original: color * int =
           do 
             
             j := !j+1;
-            if (VSet.for_all (fun n -> try 
+            if (VSet.for_all (fun n -> (* Printf.printf "Trying %s and %s\n" s n;*)
+              
+                                      try 
                                         let couleur = VMap.find n !c in 
                                         couleur != !j
                                         with
@@ -497,18 +504,16 @@ let color g (k: int) globals original: color * int =
                                 (flag := false;)
           done;
           
-          i := !i + 1;
 
-          c := VMap.add s !i !c;
+          c := VMap.add s !j !c;
           
           Graph.remove_vertex s g
 
   in
   let c = ref VMap.empty in
-  let i = ref 0 in
   let to_merge = ref VMap.empty in
   while (VMap.cardinal !g <> 0) do  
-      simplify g c i to_merge original;
+      simplify g c to_merge original;
   done;
  
   VMap.iter (fun x y -> let i = VMap.find y !c in 
@@ -545,11 +550,16 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   let i = ref (0) in
   let g = interference_graph fdef in
 
-  (*
-  VMap.iter (fun s i -> match i with 
-              | x, Conflict -> Printf.printf "%s is in conflict with %s\n" s s; 
-              | x, Preference-> Printf.printf "%s is in pref with %s\n" s s;) g;
-  *)
+  
+  (VMap.iter (fun s _ -> 
+                        (VSet.iter 
+                          (fun x -> (Printf.printf "%s is in conflict with %s\n" s x);
+                          ) (Graph.neighbours s Conflict g));  
+                       (VSet.iter 
+                          (fun x -> Printf.printf "%s is in pref with %s\n" s x;
+                          ) (Graph.neighbours s Preference g)); 
+              ) g);
+  
   let c = ref VMap.empty in
 
   let x = ref g in 
@@ -560,7 +570,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   x := Graph.remove_vertex "$a2" !x;
   x := Graph.remove_vertex "$a3" !x;
 
-  let col, n = (color x 2 globals !x) in
+  let col, n = (color x 10 globals !x) in
 
   print_colors col;
   (VMap.iter (fun s i -> 
