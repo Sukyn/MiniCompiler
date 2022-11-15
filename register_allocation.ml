@@ -186,6 +186,8 @@ let liveness fdef =
           - les registres $si
         *)
         (* TODO *)
+        (VSet.singleton "$v0")
+        (*
        (VSet.union (VSet.singleton "$v0")
             (VSet.union 
               (VSet.union 
@@ -201,7 +203,7 @@ let liveness fdef =
                     (VSet.singleton "$s4"))
                   (VSet.singleton "$s5"))
                 (VSet.singleton "$s6"))
-              (VSet.singleton "$s7")))
+              (VSet.singleton "$s7"))) *)
     | If(r, s1, s2) ->
        (* En sortie du test de la valeur de [r], les blocs [s1] et [s2]
           sont deux futurs possibles. Les variables vivantes dans ces deux
@@ -306,8 +308,10 @@ let rec interference_graph fdef =
    *)
   and instr n i g = 
   
+  (*
   VSet.iter (fun s -> Printf.printf "%s is alive at step %i\n" s n;) (Hashtbl.find live_out n);
-  
+  *)
+
   match i with
      
     | Read(rd, _) | Cst(rd, _) | Unop(rd, _, _) | Binop(rd, _, _, _) ->
@@ -328,13 +332,15 @@ let rec interference_graph fdef =
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
       let out = Hashtbl.find live_out n in
-       Graph.add_edge rs rd Preference (VSet.fold (* fold : itérateur avec accumulateur *)
+      if rs <> rd then 
+       (Graph.add_edge rd rs Preference (VSet.fold (* fold : itérateur avec accumulateur *)
                                         (fun r g' -> if r <> rd then
                                                         Graph.add_edge r rd Conflict g'
                                                       else
                                                         g')
                                         out
-                                        g)
+                                        g))
+        else g
     | Putchar _ | Write _ | Return | Push _ | Pop _ | Putint _ ->
        g
     | Call(_, _) ->
@@ -388,7 +394,7 @@ let choose_color (v: VSet.t) (colors: color): int =
           do 
             
             j := !j+1;
-            if (VSet.for_all (fun n -> (* Printf.printf "Trying %s and %s\n" s n;*)
+            if (VSet.for_all (fun n ->
               
                                       try 
                                         let couleur = VMap.find n colors in 
@@ -460,7 +466,7 @@ let color g (k: int) globals original: color * int =
      
 
       try let s, _ = VMap.find_first (fun s -> Graph.degree s !g < k && not (Graph.has_pref s !g)) !g in
-          g := select s c !g original;
+          g := select s c !to_merge !g original;
       with 
       | Not_found -> coalesce g c to_merge original; 
       
@@ -492,9 +498,9 @@ let color g (k: int) globals original: color * int =
                                         )
                                       ) !g in
 
-          g := Graph.remove_prefs !second !g;
-          g := Graph.merge !first !second !g;
-          to_merge := VMap.add !first !second !to_merge;
+          g := Graph.remove_prefs !first !g;
+          g := Graph.merge !second !first !g;
+          to_merge := VMap.add !second !first !to_merge;
          
           simplify g c to_merge original;
           
@@ -538,19 +544,26 @@ let color g (k: int) globals original: color * int =
    *)
   and spill g c to_merge original =
       let s, _ = VMap.find_first (fun s -> true) !g in 
-      g := select s c !g original;
+      g := select s c !to_merge !g original;
       simplify g c to_merge original;
 
   (** Mettre de côté un sommet [x] et colorier récursivement le graphe [g']
       ainsi obtenu. À la fin, on choisit une couleur pour [x] compatible
       avec les couleurs sélectionnées pour ses voisins.
    *)
-  and select s c g original =
+  and select s c to_merge g original =
 
-          let ngh = (Graph.neighbours s Conflict original) in
-          let j = choose_color ngh !c in
-          c := VMap.add s j !c;
-          Graph.remove_vertex s g
+          (try 
+            let v = (VSet.union (Graph.neighbours s Conflict original) 
+                    (Graph.neighbours (VMap.find s to_merge) Preference original)) in 
+                    let j = choose_color v !c in
+                    c := VMap.add s j !c;
+                    Graph.remove_vertex s g
+           with Not_found -> let v = (Graph.neighbours s Conflict original) in
+                            let j = choose_color v !c in
+                            c := VMap.add s j !c;
+                            Graph.remove_vertex s g)
+          
 
   in
   let c = ref VMap.empty in
@@ -602,6 +615,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                           ) (Graph.neighbours s Preference g)); 
               ) g);
   *)
+  
   let c = ref VMap.empty in
 
   let x = ref g in 
@@ -636,10 +650,10 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   (VMap.iter (fun s i -> 
               if not (VMap.mem s !c) then 
                 
-                (if (i < 8) then
-                  (c := VMap.add s (Actual (Printf.sprintf "$t%i" (i+2))) !c;)
+                (if (i < 9) then
+                  (c := VMap.add s (Actual (Printf.sprintf "$t%i" (i+1))) !c;)
                 else
-                  (c := VMap.add s (Stacked (6-i)) !c;)))
+                  (c := VMap.add s (Stacked (i-10)) !c;)))
         col);
     
   List.iter (fun s -> (i := !i + 1;
@@ -648,12 +662,13 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                   ) fdef.params;
 
   List.iter (fun x -> c := VMap.add x (Actual x) !c;) globals;
-  print_colors col;
+
   VMap.iter (fun s k ->
           match k with 
           | Actual v -> Printf.printf "%s is linked with Actual %s\n" s v;
-          | Stacked i -> Printf.printf "%s is linked with Stacked %i\n" s i;) !c;
+          | Stacked i -> Printf.printf "%s is linked with Stacked %i\n" s i;) !c; 
   
+
   c := VMap.add "$v0" (Actual (Printf.sprintf "$v0")) !c;
   c := VMap.add "$t0" (Actual (Printf.sprintf "$t0")) !c;
   c := VMap.add "$t1" (Actual (Printf.sprintf "$t1")) !c;
@@ -662,13 +677,21 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   c := VMap.add "$a2" (Actual (Printf.sprintf "$a2")) !c; 
   c := VMap.add "$a3" (Actual (Printf.sprintf "$a3")) !c;
   
+  if n > 1 then
   c := VMap.add "$t2" (Actual (Printf.sprintf "$t2")) !c;
+  if n > 2 then
   c := VMap.add "$t3" (Actual (Printf.sprintf "$t3")) !c;
+  if n > 3 then
   c := VMap.add "$t4" (Actual (Printf.sprintf "$t4")) !c;
+  if n > 4 then
   c := VMap.add "$t5" (Actual (Printf.sprintf "$t5")) !c;
+  if n > 5 then
   c := VMap.add "$t6" (Actual (Printf.sprintf "$t6")) !c;
+  if n > 6 then
   c := VMap.add "$t7" (Actual (Printf.sprintf "$t7")) !c;
+  if n > 7 then
   c := VMap.add "$t8" (Actual (Printf.sprintf "$t8")) !c;
+  if n > 8 then
   c := VMap.add "$t9" (Actual (Printf.sprintf "$t9")) !c;
   
   (*

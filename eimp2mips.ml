@@ -59,22 +59,24 @@ let tr_fdef fdef =
     | Seq(s1, s2) -> tr_seq s1 @@ tr_seq s2
   in
   
+  let shf = if fdef.locals < 8 then 0 else ((fdef.locals-8)*4) in
   (* code de la fonction *)
   if fdef.name = "main" then 
         (*Stocker fp*)
       push fp 
       (*Stocker ra*)
       @@ push ra
-      @@ move fp sp    (* Désallocation de la pile *)
+      @@ subi sp sp (shf)
+      @@ move fp sp    
       (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
       @@ tr_seq fdef.code
       @@ label return_label
-      @@ lw ra (4) sp (* Récupération de l'adresse de retour *)
-      @@ lw fp (8) sp
+      @@ lw ra (4+shf) sp (* Récupération de l'adresse de retour *)
+      @@ lw fp (8+shf) sp
       @@ move sp fp    (* Désallocation de la pile *)
       @@ jr ra
   else 
-  
+   
     push t9 
     @@ push t8
     @@ push t7
@@ -101,9 +103,8 @@ let tr_fdef fdef =
   @@ sw ra (-4*9) sp
   (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
   @@ subi fp sp (4*8) 
-  
+  *)
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)
-  @@ subi sp sp (4*10) *)
   @@ tr_seq fdef.code
   @@ label return_label
   @@ lw ra (4*1) sp (* Récupération de l'adresse de retour *)

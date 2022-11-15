@@ -21,10 +21,14 @@ function main() {
   h = 8;
   i = 9;
   j = 10;
-  x = sum(a, b, c, d, e);
+  x = sum(a, b, c, d, e, f, g, h, i, j);
   putchar(a+b+c+d+e+f+g+h+i+j);
 }
 
-function sum(a, b, c, d, e) {
+function sum(a, b, c, d, e, f, g, h, i, j) {
+  return (sum2(a, b, c, d, e, f, g, h, i, j));
+}
+
+function sum2(a, b, c, d, e, f, g, h, i, j) {
   return (a+b+c+d+e);
 }
