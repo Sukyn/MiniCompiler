@@ -87,6 +87,7 @@ let tr_fdef fdef =
     @@ push t2
     @@ push fp 
     @@ push ra
+    @@ subi sp sp (shf)
     @@ move fp sp 
     (*
   sw t9 (-4*0) sp
@@ -107,8 +108,8 @@ let tr_fdef fdef =
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)
   @@ tr_seq fdef.code
   @@ label return_label
+  @@ addi sp sp (shf)
   @@ lw ra (4*1) sp (* Récupération de l'adresse de retour *)
-  
   @@ lw fp (4*2) sp
   @@ lw t2 (4*3) sp
   @@ lw t3 (4*4) sp
