@@ -111,22 +111,7 @@ let tr_fdef fdef =
     @@ push ra
     @@ subi sp sp (shf)
     @@ move fp sp 
-    (*
-  sw t9 (-4*0) sp
-  @@ sw t8 (-4*1) sp
-  @@ sw t7 (-4*2) sp
-  @@ sw t6 (-4*3) sp
-  @@ sw t5 (-4*4) sp
-  @@ sw t4 (-4*5) sp
-  @@ sw t3 (-4*6) sp
-  @@ sw t2 (-4*7) sp
-  (*Stocker fp*)
-  @@ sw fp (-4*8) sp
-  (*Stocker ra*)
-  @@ sw ra (-4*9) sp
-  (*Redéfinir fp pour représenter le pointeur de base du tableau d'activation*)
-  @@ subi fp sp (4*8) 
-  *)
+  
   (*Décaler sp pour réserver l'espace nécessaire aux variables locals *)
   @@ tr_seq fdef.code
   @@ label return_label
