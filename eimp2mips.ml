@@ -77,14 +77,36 @@ let tr_fdef fdef =
       @@ jr ra
   else 
    
-    push t9 
-    @@ push t8
-    @@ push t7
-    @@ push t6
-    @@ push t5
-    @@ push t4
-    @@ push t3
-    @@ push t2
+    let sve = ref nop in 
+    let rcv = ref nop in
+    let shf2 = if fdef.locals < 8 then fdef.locals else 8 in
+   
+    if fdef.locals > 0 then 
+      (sve := push t2 @@ !sve ;
+      rcv := !rcv @@ lw t2 (4*3) sp;);
+      if fdef.locals > 1 then 
+        (sve := push t3 @@ !sve;
+        rcv := !rcv @@ lw t3 (4*4) sp;);
+      if fdef.locals > 2 then 
+          (sve := push t4 @@ !sve;
+          rcv :=  !rcv @@ lw t4 (4*5) sp;);
+          if fdef.locals > 3 then 
+           (sve := push t5 @@ !sve ;
+            rcv := !rcv @@ lw t5 (4*6) sp;);
+            if fdef.locals > 4 then 
+              (sve := push t6 @@ !sve;
+              rcv := !rcv @@ lw t6 (4*7) sp;);
+              if fdef.locals > 5 then 
+                (sve := push t7 @@ !sve ;
+                rcv := !rcv @@ lw t7 (4*8) sp;);
+                if fdef.locals > 6 then 
+                  (sve := push t8 @@ !sve ;
+                  rcv := !rcv @@ lw t8 (4*9) sp;);
+                  if fdef.locals > 7 then 
+                    (sve := push t9 @@ !sve; 
+                    rcv := !rcv @@ lw t9 (4*10) sp;);
+      
+    !sve
     @@ push fp 
     @@ push ra
     @@ subi sp sp (shf)
@@ -111,17 +133,10 @@ let tr_fdef fdef =
   @@ addi sp sp (shf)
   @@ lw ra (4*1) sp (* Récupération de l'adresse de retour *)
   @@ lw fp (4*2) sp
-  @@ lw t2 (4*3) sp
-  @@ lw t3 (4*4) sp
-  @@ lw t4 (4*5) sp
-  @@ lw t5 (4*6) sp
-  @@ lw t6 (4*7) sp
-  @@ lw t7 (4*8) sp
-  @@ lw t8 (4*9) sp
-  @@ lw t9 (4*10) sp
-  @@ lw a1 (4*11) sp
-  @@ lw a2 (4*12) sp
-  @@ lw a3 (4*13) sp
+  @@ !rcv
+  @@ lw a1 (4*(3+shf2)) sp
+  @@ lw a2 (4*(4+shf2)) sp
+  @@ lw a3 (4*(5+shf2)) sp
   @@ move sp fp    (* Désallocation de la pile *)
   
   @@ jr ra

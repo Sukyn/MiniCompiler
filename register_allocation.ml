@@ -645,7 +645,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   x := Graph.remove_vertex "$a2" !x;
   x := Graph.remove_vertex "$a3" !x;
 
-  let col, n = (color x 10 globals !x) in
+  let col, n = (color x 8 globals !x) in
   
   (VMap.iter (fun s i -> 
               if not (VMap.mem s !c) then 
@@ -653,12 +653,12 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                 (if (i < 9) then
                   (c := VMap.add s (Actual (Printf.sprintf "$t%i" (i+1))) !c;)
                 else
-                  (c := VMap.add s (Stacked (i-10)) !c;)))
+                  (c := VMap.add s (Stacked (i-2-(if List.length fdef.locals > 8 then 8 else List.length fdef.locals))) !c;)))
         col);
     
   List.iter (fun s -> (i := !i + 1;
             if !i < 4 then (c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
-            else c := VMap.add s (Stacked (n + 7 + !i)) !c;)
+            else c := VMap.add s (Stacked (n + n - 1 + !i)) !c;)
                   ) fdef.params;
 
   List.iter (fun x -> c := VMap.add x (Actual x) !c;) globals;
