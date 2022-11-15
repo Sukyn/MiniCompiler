@@ -208,7 +208,7 @@ let liveness fdef =
        (* En sortie du test de la valeur de [r], les blocs [s1] et [s2]
           sont deux futurs possibles. Les variables vivantes dans ces deux
           blocs doivent donc être combinées. *)
-        VSet.diff (VSet.union (sequence s1 out) (sequence s2 out)) (VSet.singleton r)
+        VSet.union (VSet.union (sequence s1 out) (sequence s2 out)) (VSet.singleton r)
     | While(st, r, s) ->
        (* La boucle induit une dépendance circulaire dans les équations
           de vivacité. Cela nécessite de calculer un point fixe à ces
@@ -446,12 +446,17 @@ let color g (k: int) globals original: color * int =
       entre [y] et tous les voisins de [x].
    *)
   let george x y g =
+
+    (* Premier critère *)
     if x = "$v0" || x = "$a1" || x = "$a2" || x = "$a3" || x = "$t0" || x = "$t1" then
       false 
+    (* Troisième critère *)
     else if y = "$v0" || y = "$a1" || y = "$a2" || y = "$a3" || y = "$t0" || y = "$t1" then 
       not (VSet.exists (fun s -> s = "$v0" || s = "$a1" || s = "$a2" || s = "$a3" || s = "$t0" || s = "$t1") (Graph.neighbours x Conflict g))
     else
-      true 
+      (* Deuxième critère *)
+      VSet.for_all (fun s -> if Graph.degree s g >= k || s = "$v0" || s = "$a1" || s = "$a2" || s = "$a3" || s = "$t0" || s = "$t1" 
+                            then VSet.mem s (Graph.neighbours y Conflict g) else true) (Graph.neighbours x Conflict g)
   in
 
   (** Recherche d'un sommet à colorier.
@@ -464,7 +469,6 @@ let color g (k: int) globals original: color * int =
    *)
   let rec simplify g c to_merge original =
      
-
       try let s, _ = VMap.find_first (fun s -> Graph.degree s !g < k && not (Graph.has_pref s !g)) !g in
           g := select s c !to_merge !g original;
       with 
@@ -481,21 +485,20 @@ let color g (k: int) globals original: color * int =
   and coalesce g c to_merge original =
 
       try 
-
           let first = ref "" in 
           let second = ref "" in 
           let _, _ = VMap.find_first (fun s ->  (* Parmi les sommets s *)
-                                        (VSet.exists (fun u -> 
-                                                        (if george s u !g
-                                                        then 
-                                                           (first := s; second := u;
-                                                           true)
-                                                        else 
-                                                          false)
-                                                      ) (Graph.neighbours s Preference !g) (* On regarde dans ses
-                                                                                        voisins de preference, s'il y en a un qui respecte
-                                                                                        le critère de george *)
-                                        )
+                                          (VSet.exists (fun u -> 
+                                                          (if george s u !g
+                                                          then 
+                                                              (first := s; second := u;
+                                                              true)
+                                                          else 
+                                                            false)
+                                                        ) (Graph.neighbours s Preference !g) (* On regarde dans ses
+                                                                                          voisins de preference, s'il y en a un qui respecte
+                                                                                          le critère de george *)
+                                          )
                                       ) !g in
 
           g := Graph.remove_prefs !first !g;
@@ -566,15 +569,22 @@ let color g (k: int) globals original: color * int =
           
 
   in
+
+  (* c est la coloration *)
   let c = ref VMap.empty in
+  (* to_merge contient les sommets à fusionner à la fin *)
   let to_merge = ref VMap.empty in
+
+  (* On va vider le graphe, un sommet est retiré quand une couleur lui est attribuée *)
   while (VMap.cardinal !g <> 0) do  
       simplify g c to_merge original;
   done;
  
+  (* On merge les sommets *)
   VMap.iter (fun x y -> let i = VMap.find y !c in 
                     (c := VMap.add x i !c;) ) !to_merge;
 
+  (* On récupère la plus grande couleur utilisée *)
   let max = ref 0 in 
   VMap.iter (fun _ i -> if i > !max then max := i;) !c;
   !c, !max
@@ -602,35 +612,8 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
      - le nombre d'emplacements de pile utilisés.
    *)
  
-  let i = ref (0) in
-  let g = interference_graph fdef in
-
-  (*
-  (VMap.iter (fun s _ -> 
-                        (VSet.iter 
-                          (fun x -> (Printf.printf "%s is in conflict with %s\n" s x);
-                          ) (Graph.neighbours s Conflict g));  
-                       (VSet.iter 
-                          (fun x -> Printf.printf "%s is in pref with %s\n" s x;
-                          ) (Graph.neighbours s Preference g)); 
-              ) g);
-  *)
-  
-  let c = ref VMap.empty in
-
-  let x = ref g in 
+  let x = ref (interference_graph fdef) in 
   x := Graph.remove_vertex "$v0" !x;
-
-  (*
-  x := Graph.remove_vertex "$s0" !x;
-  x := Graph.remove_vertex "$s1" !x;
-  x := Graph.remove_vertex "$s2" !x;
-  x := Graph.remove_vertex "$s3" !x;
-  x := Graph.remove_vertex "$s4" !x;
-  x := Graph.remove_vertex "$s5" !x;
-  x := Graph.remove_vertex "$s6" !x;
-  x := Graph.remove_vertex "$s7" !x;
-  *)
   x := Graph.remove_vertex "$t0" !x;
   x := Graph.remove_vertex "$t1" !x;
   x := Graph.remove_vertex "$t2" !x;
@@ -647,6 +630,9 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
 
   let col, n = (color x 8 globals !x) in
   
+  (* c contient l'allocation *)
+  let c = ref VMap.empty in
+
   (VMap.iter (fun s i -> 
               if not (VMap.mem s !c) then 
                 
@@ -655,19 +641,17 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                 else
                   (c := VMap.add s (Stacked (i-2-(if List.length fdef.locals > 8 then 8 else List.length fdef.locals))) !c;)))
         col);
-    
+  
+  (* On colorie artificiellement les paramètres *)
+  let i = ref (0) in
   List.iter (fun s -> (i := !i + 1;
             if !i < 4 then (c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
             else c := VMap.add s (Stacked (n + n - 1 + !i)) !c;)
                   ) fdef.params;
-
+  
+  (* Les globals sont des "registres" réels *)
   List.iter (fun x -> c := VMap.add x (Actual x) !c;) globals;
 
-  VMap.iter (fun s k ->
-          match k with 
-          | Actual v -> Printf.printf "%s is linked with Actual %s\n" s v;
-          | Stacked i -> Printf.printf "%s is linked with Stacked %i\n" s i;) !c; 
-  
 
   c := VMap.add "$v0" (Actual (Printf.sprintf "$v0")) !c;
   c := VMap.add "$t0" (Actual (Printf.sprintf "$t0")) !c;
@@ -693,17 +677,6 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   c := VMap.add "$t8" (Actual (Printf.sprintf "$t8")) !c;
   if n > 8 then
   c := VMap.add "$t9" (Actual (Printf.sprintf "$t9")) !c;
-  
-  (*
-  c := VMap.add "$s0" (Actual (Printf.sprintf "$s0")) !c;
-  c := VMap.add "$s1" (Actual (Printf.sprintf "$s1")) !c;
-  c := VMap.add "$s2" (Actual (Printf.sprintf "$s2")) !c;
-  c := VMap.add "$s3" (Actual (Printf.sprintf "$s3")) !c;
-  c := VMap.add "$s4" (Actual (Printf.sprintf "$s4")) !c;
-  c := VMap.add "$s5" (Actual (Printf.sprintf "$s5")) !c;
-  c := VMap.add "$s6" (Actual (Printf.sprintf "$s6")) !c;
-  c := VMap.add "$s7" (Actual (Printf.sprintf "$s7")) !c;
-  *)
 
   !c, n
 

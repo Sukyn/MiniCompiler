@@ -44,60 +44,30 @@ let tr_fdef globals fdef  =
 
   let rec tr_instr = function
     | Aimp.Putchar vr ->
+
         if List.mem vr globals then Instr(Read(op1_reg, Global vr)) @@ Instr(Putchar(op1_reg))
         else
-       load1 vr @@ 
-       (match vr with 
-       | "$v0" -> 
-            Instr(Putchar(vr))
-       | _ ->  Instr(Putchar(op1 vr)))
-    | Aimp.Putint n ->
-      
-      Instr(Putint n)
-
+          load1 vr @@ 
+          Instr(Putchar(op1 vr))
+    | Aimp.Putint n -> Instr(Putint n) (* Chargement direct des constantes *)
     | Aimp.Read(vrd, x) ->
       if List.mem x globals then 
        Instr(Read(dst vrd, Global x))  @@ save vrd
       else
-          if dst vrd = op1 x then 
-             load1 x @@ save vrd 
-          else if op1 x = op1_reg then
-            load (dst vrd) x
-          else if dst vrd = dst_reg then 
-            (match Graph.VMap.find vrd alloc with
-            | Stacked i -> Instr(Write(Stack(-i-2), op1 x))
-            | _ -> failwith "not supposed to happen")
-          else Instr(Move(dst vrd, op1 x))
+          load1 x @@ Instr(Move(dst vrd, op1 x)) @@ save vrd
        
     | Aimp.Write(x, vr) ->
        if List.mem x globals then load1 vr @@ Instr(Write(Global x, op1 vr))
       else
-        if dst vr = op1 x then 
-          load1 vr @@ save x
-       else if op1 vr = op1_reg then
-        load (dst x) vr
-       else if dst x = dst_reg then 
-         (match Graph.VMap.find x alloc with
-         | Stacked i -> Instr(Write(Stack(-i-2), op1 vr))
-         | _ -> failwith "not supposed to happen")
-       else Instr(Move(dst x, op1 vr))
+        load1 vr @@ Instr(Move(dst x, op1 vr)) @@ save x
        
     | Aimp.Move(vrd, vr) ->
-        if dst vr = op1 vrd then 
-          load1 vr @@ save vrd
-      else if op1 vr = op1_reg then
-        load (dst vrd) vr
-      else if dst vrd = dst_reg then 
-        (match Graph.VMap.find vrd alloc with
-        | Stacked i -> Instr(Write(Stack(-i-2), op1 vr))
-        | _ -> failwith "not supposed to happen")
-      else Instr(Move(dst vrd, op1 vr))
+        if dst vr = op1 vrd then  (* On enlève les move d'un registre vers lui même*)
+          Nop
+      else load1 vr @@ Instr(Move(dst vrd, op1 vr)) @@ save vrd
         
     | Aimp.Push vr ->
-       if vr = "$t0" then Instr(Push(vr))
-       else
-       load1 vr
-       @@ Instr(Push(op1 vr))
+       load1 vr @@ Instr(Push(op1 vr))
     | Aimp.Pop n ->
        Instr(Pop n)
     | Aimp.Cst(vrd, n) ->
@@ -107,20 +77,14 @@ let tr_fdef globals fdef  =
           Sinon si c'est un emplacement de pile on met n dans t0 et on le save à
           l'emplacement de pile
             *)
-
-        
-            if List.mem vrd globals then 
-             Instr(GlobCst(vrd, n))
-            else
+        if List.mem vrd globals then 
+          Instr(GlobCst(vrd, n))
+        else
               
-              (match Graph.VMap.find vrd alloc with
-              | Actual r  -> Instr(Cst(r, n))
-              | Stacked i -> Instr(DirCst(Stack(-i-2), n)))
+        (match Graph.VMap.find vrd alloc with
+        | Actual r  -> Instr(Cst(r, n))
+        | Stacked i -> Instr(DirCst(Stack(-i-2), n)))
             
-       (*
-       @@
-       save vrd
-       *)
     | Aimp.Unop(vrd, op, vr) ->
         (* Le load correspond a l'inverse de save
           le but du jeu est de placer vr dans un registre
@@ -138,26 +102,17 @@ let tr_fdef globals fdef  =
           load1 vr1
           @@ Instr(Binop(dst vrd, tr_binop op, op1 vr1, op1 vr1))
           @@ save vrd
-  
         else 
-        load2 vr1
-        @@ load1 vr2
-        @@ Instr(Binop(dst vrd, tr_binop op, op2 vr1, op1 vr2))
-        @@ save vrd
+          load2 vr1
+          @@ load1 vr2
+          @@ Instr(Binop(dst vrd, tr_binop op, op2 vr1, op1 vr2))
+          @@ save vrd
   
     | Aimp.Call(f, n) ->
-      
       Instr(Call(f)) 
-    | Aimp.If(vr, s1, s2) ->
-            
-          load1 vr @@
-          Instr(If(op1 vr, tr_seq s1, tr_seq s2))
+    | Aimp.If(vr, s1, s2) -> load1 vr @@ Instr(If(op1 vr, tr_seq s1, tr_seq s2))
     | Aimp.While(s1, vr, s2) ->
-        (match s1 with 
-        | Seq(s, Instr(_, Binop(vrd, op, vr1, vr2))) -> 
-                        Instr(While(tr_seq s @@ load1 vr1 @@ load1 vr2 @@ Instr(Binop(dst vrd, tr_binop op, op1 vr1, op2 vr2)) , op1 vr, tr_seq s2))
-        | _ ->
-        Instr(While(tr_seq s1 @@ load1 vr, op1 vr, tr_seq s2)))
+        Instr(While(tr_seq s1 @@ load1 vr, op1 vr, tr_seq s2))
     | Aimp.Return ->
        Instr(Return)
 
@@ -172,9 +127,7 @@ let tr_fdef globals fdef  =
     name = Aimp.(fdef.name);
     params = List.length Aimp.(fdef.params);
     locals = mx;
-    code = (* let i = ref 0 in
-            List.fold_left (fun acc x -> i := !i + 1; 
-                     acc @@ Instr(Write(Stack(- !i), Printf.sprintf "$a%i" !i))) Nop Aimp.(fdef.params) @@ *) (tr_seq Aimp.(fdef.code));
+    code = (tr_seq Aimp.(fdef.code));
   }
 let tr_prog prog = {
     globals = Aimp.(prog.globals);

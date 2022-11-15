@@ -19,23 +19,29 @@ open Mimp
    -> le même résultat,
    -> ET les mêmes effets de bord éventuels. *)
 let mk_add e1 e2 = match e1, e2 with
+  (* Ajouter deux entiers l'un après l'autre revient à récupérer leur somme *)
   | Cst n1, Cst n2 ->
      Cst(n1+n2)
+   (* Ajouter 0 ne fait rien *)
   | Cst 0, e | e, Cst 0 ->
      e
+   (* Ajouter n1 puis ajouter n2 à e revient à ajouter n1+n2 à e *)
   | Cst n1, Unop(Addi n2, e) | Unop(Addi n2, e), Cst n1 ->
      Unop(Addi(n1+n2), e)
+   (* Traduction de Addi*)
   | Cst n, e | e, Cst n ->
      Unop(Addi n, e)
+   (* Ajouter n1 à e1 puis N2 à e2 revient à ajouter n1+n2 à e1+e2*)
   | Unop(Addi n1, e1), Unop(Addi n2, e2) ->
-     (* Normalement, sous un Addi, pas d'autre élément simplifiable,
-        mais à généraliser. *)
      Unop(Addi(n1+n2), Binop(Add, e1, e2))
+   (* Cas de base *)
   | _ ->
      Binop(Add, e1, e2)
 
 let mk_mul e1 e2 = match e1, e2 with
+   (* e*0 = 0 *)
    | Cst 0, e | e, Cst 0 -> Cst 0
+   (* e*1 = 1 *)
    | Cst 1, e | e, Cst 1 -> e
    | Cst n1, Cst n2 -> Cst(n1 * n2)
 (*   | Cst 2, e1 | e1, Cst 2 -> Unop(Sll 1, e1) *) (* A faire : La puissance de 2 *)

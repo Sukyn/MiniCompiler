@@ -53,103 +53,69 @@ let tr_fdef globals fdef  =
      Renvoie une paire (r, s) d'une séquence s et du nom r du registre
      virtuel contenant la valeur de l'expression. *)
   let rec tr_expr = function
+
+    (* Pour une constante, on la stocke dans un registre temporaire *)
     | Mimp.Cst n ->
        let r = new_vreg() in r, Nop ++ Cst(r, n)
+    (* Idem pour un booléen *)
     | Mimp.Bool b ->
        let r = new_vreg() in
        let n = if b then 1 else 0 in
        r, Nop ++ Cst(r, n)
+
+    (* Pour les variables c'est plus compliqué *)
     | Mimp.Var x ->
+
        (* Il faut distinguer ici entre variables locales, paramètres et
           variables globales. *)
-       let i = ref 0 in 
-       if List.mem x !vregs then
-        let r = new_vreg() in r, Nop ++ Move(r, x)
-       else if (List.exists (fun s -> i := !i + 1; x == s) Mimp.(fdef.params)) then
-                  (if (!i > List.length fdef.params - 4) then  (Printf.sprintf "$a%i" !i), Nop
-                  else (Printf.sprintf "#%i" (List.length fdef.params - !i) ), Nop )
+
+       (* Si c'est une variable locale*)
+       if List.mem x !vregs then  
+        x, Nop   (* On la charge dans x *)
+
+       (* Si c'est un paramètre *)
+       else if (List.mem x Mimp.(fdef.params)) then
+           x, Nop 
   
+       (* Si c'est une variable globale, on la charge *)
        else if List.mem x globals then
          let r = new_vreg() in r, Nop ++ Read(r, x)
        else
           let r = new_vreg() in r, Nop ++ Move(r, x)
-
     | Mimp.Unop(op, e) ->
        
-       let r = new_vreg() in 
-       (match e with
-       | Var x -> r, if List.mem x globals then
-                       let r1, s1 = tr_expr e in
-                       s1 ++ Unop(r, tr_unop op, r1)
-                    else
-                         Nop ++ Unop(r, tr_unop op, x)
-       | _ -> let r1, s1 = tr_expr e in
-          r, s1 ++ Unop(r, tr_unop op, r1))
+        let r = new_vreg() in 
+        let r1, s1 = tr_expr e in
+        r, s1 ++ Unop(r, tr_unop op, r1)
     | Mimp.Binop(op, e1, e2) ->
-       if e1 = e2 then 
-         let r = new_vreg() in
-          (match e1 with 
-         | Var x -> if List.mem x globals then 
-                      let r1, s1 = tr_expr e1 in
-                      r, s1 ++ Binop(r, tr_binop op, r1, r1)
-                    else
-                      r, Nop ++ Binop(r, tr_binop op, x, x)
-          | _ -> 
-            let r1, s1 = tr_expr e1 in
-            r1, s1 ++ Binop(r1, tr_binop op, r1, r1))
-       else 
-          let r = new_vreg() in
-          (match e1, e2 with 
-          | Var x, Var y -> if List.mem x globals then
-                                    let r1, s1 = tr_expr e1 in
-                                    (if List.mem y globals 
-                                    then  let r2, s2 = tr_expr e2 in
-                                          (r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2))
-                                    else r, s1 ++ Binop(r, tr_binop op, r1, y))
-                               else if List.mem y globals then 
-                                   let r2, s2 = tr_expr e2 in
-                                   r, s2 ++ Binop(r, tr_binop op, x, r2)
-                               else r, Nop ++ Binop(r, tr_binop op, x, y)
-          | Var x, _ ->  let r2, s2 = tr_expr e2 in
-            
-                         if List.mem x globals 
-                         then let r1, s1 = tr_expr e1 in
-                              r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2) 
-                         else
-                              r, s2 ++ Binop(r, tr_binop op, x, r2)
-          | _, Var y -> let r1, s1 = tr_expr e1 in
-                        if List.mem y globals 
-                        then let r2, s2 = tr_expr e2 in
-                            r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2) 
-                         else r, s1 ++ Binop(r, tr_binop op, r1, y)
-          | _ ->  
-            let r1, s1 = tr_expr e1 in
-            let r2, s2 = tr_expr e2 in
-              r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2))
+        let r = new_vreg() in
+        let r1, s1 = tr_expr e1 in
+        let r2, s2 = tr_expr e2 in
+        r, s1 @@ s2 ++ Binop(r, tr_binop op, r1, r2)
     | Mimp.Call(f, args) ->
        (* Il faut réaliser ici la convention d'appel : passer les arguments
           de la bonne manière, et renvoyer le résultat dans $v0. *)
        let i = ref 0 in
-       "$v0",       let s =
-                        (List.fold_left (fun acc s -> i := !i + 1;
 
-                        if !i < 4 then 
-                            (match s with 
-                            | Mimp.Cst n -> Nop ++ Push (Printf.sprintf "$a%i" !i) ++ Cst((Printf.sprintf "$a%i" !i), n) @@ acc
-                            | _ -> let r, t = tr_expr s in t ++ Push (Printf.sprintf "$a%i" !i) ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
-                            )
-                        else
-                          (match s with 
-                          | Mimp.Cst n -> Nop ++ Cst(Printf.sprintf "$t0", n) ++ Push "$t0" @@ acc
-                          | _ -> let r, t = tr_expr s in
-                        t ++ Push r @@ acc))
-                        
-                                Nop args) 
-                    in
-                            
-                      List.fold_left (fun acc s -> i := !i + 1; if !i < 4 then (Nop ++ Push (Printf.sprintf "$a%i" !i)) @@ acc else acc) Nop [0; 0; 0; 0] 
-                    @@ s
-                    ++ Call(f, List.length args)
+       (* On va renvoyer dans v0 *)
+      "$v0", let s =
+                (List.fold_left (fun acc s -> i := !i + 1;
+                (* On push les a_i AVANT de les modifier pour pouvoir les restaurer après *)
+                if !i < 4 then 
+                    (match s with 
+                    (* On évite de créer des registres temporaires pour les constantes *)
+                    | Mimp.Cst n -> Nop ++ Push (Printf.sprintf "$a%i" !i) ++ Cst((Printf.sprintf "$a%i" !i), n) @@ acc
+                    | _ -> let r, t = tr_expr s in t ++ Push (Printf.sprintf "$a%i" !i) ++ Write((Printf.sprintf "$a%i" !i), r) @@ acc
+                    )
+                else
+                    let r, t = tr_expr s in
+                    t ++ Push r @@ acc)
+                Nop args) 
+            in
+      (* Dans tous les cas on push quand même les autres a_i (même s'ils ne nous servent pas)*)
+      List.fold_left (fun acc s -> i := !i + 1; if !i < 4 then (Nop ++ Push (Printf.sprintf "$a%i" !i)) @@ acc else acc) Nop [0; 0; 0; 0] 
+    @@ s
+    ++ Call(f, List.length args)
                    
   in
 
@@ -157,8 +123,9 @@ let tr_fdef globals fdef  =
   let rec tr_instr = function
     | Mimp.Putchar e ->
        (match e with
+                      (* Putint charge directement dans a0 plutôt que de
+                          passer par un registre intermediaire *)
        | Cst n -> Nop ++ Putint n
-       | Var x -> Nop ++ Putchar x
        | _ -> let r, s = tr_expr e in
               s ++ Putchar r)
     | Mimp.Set(x, e) ->
@@ -172,7 +139,7 @@ let tr_fdef globals fdef  =
           | Var s -> Nop ++ Move(x, s)
           
           | Binop(op, e1, e2) ->
-                  if e1 = e2 then 
+                  if e1 = e2 then (* Si les deux sont identiques, on ne les charge qu'une seule fois *)
                     (match e1 with 
                     | Var s -> if List.mem s globals then 
                                 let r1, s1 = tr_expr e1 in
@@ -183,6 +150,7 @@ let tr_fdef globals fdef  =
                       let r1, s1 = tr_expr e1 in
                       s1 ++ Binop(x, tr_binop op, r1, r1))
                   else 
+                    (* Il est à peu près sûr que ce code n'est pas optimal, à nettoyer, mais fonctionnel *)
                     (match e1, e2 with 
                     | Var s, Var y -> if List.mem s globals then
                                               let r1, s1 = tr_expr e1 in
@@ -218,17 +186,11 @@ let tr_fdef globals fdef  =
             | _ -> let z, s = tr_expr e in
                   s ++ Write(x, z))
           | _ ->
-        
-          let z, s = tr_expr e in
-          s ++ Move(x, z)
-          
+            let z, s = tr_expr e in
+            s ++ Move(x, z)
           )
-        
-        
-       
 
     | Mimp.If(e, s1, s2) ->
-      
               let z, s = tr_expr e in
               let y1 = tr_seq s1 in
               let y2 = tr_seq s2 in
@@ -241,7 +203,6 @@ let tr_fdef globals fdef  =
        (* Le résultat renvoyé doit être placé dans $v0. *)
        (match e with 
        | Cst n -> Nop ++ Cst("$v0", n) ++ Return
-       | Var x -> Nop ++ Move("$v0", x) ++ Return
        | _ -> 
             let z, s = tr_expr e in
             s ++ Move("$v0", z) ++ Return
