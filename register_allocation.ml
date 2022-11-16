@@ -470,10 +470,10 @@ let color g (k: int) globals original: color * int =
    *)
   let rec simplify g c to_merge original =
      
-      try let s, _ = VMap.find_first (fun s -> Graph.degree s !g < k && not (Graph.has_pref s !g)) !g in
-          g := select s c !to_merge !g original;
-      with 
-      | Not_found -> coalesce g c to_merge original; 
+    try let s, _ = List.find (fun (s, _) -> Graph.degree s !g < k && not (Graph.has_pref s !g)) (VMap.bindings !g) in
+        g := select s c !to_merge !g original;
+    with 
+    | Not_found -> coalesce g c to_merge original; 
       
 
   (** Recherche de deux sommets à fusionner.
