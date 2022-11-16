@@ -641,15 +641,14 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                 (if (i < 9) then
                   (c := VMap.add s (Actual (Printf.sprintf "$t%i" (i+1))) !c;)
                 else
-                  (c := VMap.add s (Stacked (i-2-(if List.length fdef.locals > 8 then 8 else List.length fdef.locals))) !c;)))
+                  (c := VMap.add s (Stacked (i-n)) !c;)))
         col);
   
   (* On colorie artificiellement les paramètres *)
   let i = ref (0) in
   List.iter (fun s -> (i := !i + 1;
             if !i < 4 then (c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
-            else c := VMap.add s (Stacked ((if List.length fdef.locals > 8 then List.length fdef.locals-7 else 0)
-                                             + !i)) !c;)
+            else c := VMap.add s (Stacked (n + !i)) !c;)
                   ) fdef.params;
   
   (* Les globals sont des "registres" réels *)
