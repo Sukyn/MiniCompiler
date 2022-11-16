@@ -641,7 +641,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
                 (if (i < 9) then
                   (c := VMap.add s (Actual (Printf.sprintf "$t%i" (i+1))) !c;)
                 else
-                  (c := VMap.add s (Stacked (i-n)) !c;)))
+                  (c := VMap.add s (Stacked (i-8-2)) !c;)))
         col);
   
   (* On colorie artificiellement les paramètres *)
