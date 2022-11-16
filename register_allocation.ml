@@ -332,6 +332,7 @@ let rec interference_graph fdef =
        seq s1 (seq s2 g)
     | Move(rd, rs) ->
       let out = Hashtbl.find live_out n in
+      
       if rs <> rd then 
        (Graph.add_edge rd rs Preference (VSet.fold (* fold : itérateur avec accumulateur *)
                                         (fun r g' -> if r <> rd then
@@ -630,6 +631,7 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
 
   let col, n = (color x 8 globals !x) in
   
+  print_colors col;
   (* c contient l'allocation *)
   let c = ref VMap.empty in
 
@@ -646,7 +648,8 @@ let allocation (fdef: function_def) globals : register Graph.VMap.t * int =
   let i = ref (0) in
   List.iter (fun s -> (i := !i + 1;
             if !i < 4 then (c := VMap.add s (Actual (Printf.sprintf "$a%i" (!i))) !c;)
-            else c := VMap.add s (Stacked (n + n - 1 + !i)) !c;)
+            else c := VMap.add s (Stacked ((if List.length fdef.locals > 8 then List.length fdef.locals-7 else 0)
+                                             + !i)) !c;)
                   ) fdef.params;
   
   (* Les globals sont des "registres" réels *)
