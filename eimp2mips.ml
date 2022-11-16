@@ -106,7 +106,13 @@ let tr_fdef fdef =
     if fdef.locals > 7 then 
       (sve := push t9 @@ !sve; 
       rcv := !rcv @@ lw t9 (4*10) sp;);
-      
+    
+    if fdef.params > 1 then 
+      (rcv := (!rcv @@ lw a1 (4*(3+shf2)) sp););
+    if fdef.params > 2 then 
+      (rcv := (!rcv @@ lw a2 (4*(4+shf2)) sp););
+    if fdef.params > 3 then 
+      (rcv := (!rcv @@ lw a3 (4*(5+shf2)) sp););
     !sve
     @@ push fp 
     @@ push ra

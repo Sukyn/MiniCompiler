@@ -112,9 +112,7 @@ let tr_fdef globals fdef  =
                     t ++ Push r @@ acc)
                 Nop args) 
             in
-      (* Dans tous les cas on push quand même les autres a_i (même s'ils ne nous servent pas)*)
-      List.fold_left (fun acc s -> i := !i + 1; if !i < 4 then (Nop ++ Push (Printf.sprintf "$a%i" !i)) @@ acc else acc) Nop [0; 0; 0; 0] 
-    @@ s
+    s
     ++ Call(f, List.length args)
                    
   in
