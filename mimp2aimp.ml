@@ -210,6 +210,13 @@ let tr_fdef globals fdef  =
        s
   and tr_seq = function
     | []     -> Nop
+    | Mimp.Return e :: s -> 
+        (match e with 
+        | Cst n -> Nop ++ Cst("$v0", n) ++ Return
+        | _ -> 
+            let z, s = tr_expr e in
+            s ++ Move("$v0", z) ++ Return
+        )
     | i :: s -> tr_instr i @@ tr_seq s
   in
 
