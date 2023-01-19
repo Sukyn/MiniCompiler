@@ -76,7 +76,18 @@ let rec tr_instr = function
   | Imp.Return e -> Return(tr_expr e)
   | Imp.Expr e -> Expr(tr_expr e)
 and tr_seq s =
-  List.map tr_instr s
+    match s with 
+    | [] -> []
+    | Imp.If(e, s1, s2) :: y -> 
+          (match tr_expr e with 
+          | Cst 0 -> tr_seq s2 @ tr_seq(y)
+          | Cst 1 -> tr_seq s1 @ tr_seq(y)
+          | _ -> [If(tr_expr e, tr_seq s1, tr_seq s2)] @ tr_seq(y))
+    | Imp.While(e, s) :: y -> 
+          (match tr_expr e with 
+          | Cst 0 -> tr_seq(y)
+          | _ -> [While(tr_expr e, tr_seq s)] @ tr_seq(y))
+    | x :: y -> [tr_instr x] @ tr_seq y 
 
 (* Traduction directe *)
 let tr_function fdef = {

@@ -37,3 +37,7 @@ Watch out, recursive function calls is not implemented yet.
 ## Contributions
 
 Feel free to fork this project as you want.
+
+# Todo :
+- Finish deadcode removal
+- Check variables initialization
