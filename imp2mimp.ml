@@ -78,6 +78,7 @@ let rec tr_instr = function
 and tr_seq s =
     match s with 
     | [] -> []
+    | Imp.Return e :: y -> [Return(tr_expr e)]
     | Imp.If(e, s1, s2) :: y -> 
           (match tr_expr e with 
           | Cst 0 -> tr_seq s2 @ tr_seq(y)
