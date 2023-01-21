@@ -11,6 +11,9 @@
 
 open Mimp
 
+module Vars = Set.Make(String)
+let init_var = ref Vars.empty 
+let called_var = ref Vars.empty 
 (* L'appel [mk_add e1 e2] doit renvoyer une expression équivalente à la
    construction [Binop(Add, e1, e2)]. La fonction [mk_add] peut simplifier
    l'expression construite tant que cela préserve le comportement du
@@ -61,7 +64,7 @@ let tr_binop = function
 let rec tr_expr = function
   | Imp.Cst n -> Cst n
   | Imp.Bool b -> Cst (if b then 1 else 0)
-  | Imp.Var x -> Var x
+  | Imp.Var x -> if (Vars.mem x !called_var) then Var x else (called_var := Vars.add x !called_var; Var x) 
   | Imp.Binop(Add, e1, e2) -> mk_add (tr_expr e1) (tr_expr e2)
   | Imp.Binop(Mul, e1, e2) -> mk_mul (tr_expr e1) (tr_expr e2)
   | Imp.Binop(Lt, e1, e2) -> mk_comp (tr_expr e1) (tr_expr e2)
@@ -70,7 +73,7 @@ let rec tr_expr = function
 (* Traduction directe *)
 let rec tr_instr = function
   | Imp.Putchar e -> Putchar(tr_expr e)
-  | Imp.Set(x, e) -> Set(x, tr_expr e)
+  | Imp.Set(x, e) -> if (Vars.mem x !init_var) then Set(x, tr_expr e) else (init_var := Vars.add x !init_var; Set(x, tr_expr e))
   | Imp.If(e, s1, s2) -> If(tr_expr e, tr_seq s1, tr_seq s2)
   | Imp.While(e, s) -> While(tr_expr e, tr_seq s)
   | Imp.Return e -> Return(tr_expr e)
@@ -98,15 +101,22 @@ and is_return e1 = match e1 with
 
 
 (* Traduction directe *)
-let tr_function fdef = {
+let tr_function globals fdef  = 
+  init_var := Vars.union (Vars.of_list Imp.(fdef.params)) (Vars.of_list globals);
+  called_var := Vars.empty; 
+  let c = tr_seq Imp.(fdef.code) in 
+  Vars.iter (fun x -> (if (not (Vars.mem x !init_var)) then 
+                      Printf.printf("WARNING : %s is not initialized but is used\n") x;))
+             !called_var;
+  {
     name = Imp.(fdef.name);
     params = Imp.(fdef.params);
     locals = Imp.(fdef.locals);
-    code = tr_seq Imp.(fdef.code)
+    code = c
   }
 
 (* Traduction directe *)
 let tr_program prog = {
     globals = Imp.(prog.globals);
-    functions = List.map tr_function Imp.(prog.functions)
+    functions = List.map (tr_function Imp.(prog.globals)) Imp.(prog.functions) 
   }

@@ -9,7 +9,7 @@ The main challenge was allocating memory and registers such that we use as few r
 ### Imp language
 
 Our language includes
-- Int
+- Int 
 - Variables
 - Prints (ASCII number)
 - Branchements (If/While)
@@ -17,7 +17,7 @@ Our language includes
 - Basic arithmetic (+, $\times$)
 
 ## Translations
-- Imp2Mimp : Just some slight changes on the arithmetic to add unitary operations and simplify what we can, also removes some deadcode (after return and if conditional branches trivially never reached)
+- Imp2Mimp : Just some slight changes on the arithmetic to add unitary operations and simplify what we can, also removes some deadcode (zone never reached after returns) and a basic initialization check of variables
 - Mimp2Aimp : Allocation of our instructions into virtual registers (infinite amount)
 - Aimp2Eimp : Allocation of our virtual registers into actual registers ($ti, $ai, $v0, and in the stack), check out the file register_allocation.ml to see how it is done (interference graph coloration to use the same register for different variables which do not interfere)
 - Eimp2Mips : Translation into assembly language
