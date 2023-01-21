@@ -76,19 +76,26 @@ let rec tr_instr = function
   | Imp.Return e -> Return(tr_expr e)
   | Imp.Expr e -> Expr(tr_expr e)
 and tr_seq s =
-    match s with 
-    | [] -> []
-    | Imp.Return e :: y -> [Return(tr_expr e)]
-    | Imp.If(e, s1, s2) :: y -> 
-          (match tr_expr e with 
-          | Cst 0 -> tr_seq s2 @ tr_seq(y)
-          | Cst 1 -> tr_seq s1 @ tr_seq(y)
-          | _ -> [If(tr_expr e, tr_seq s1, tr_seq s2)] @ tr_seq(y))
-    | Imp.While(e, s) :: y -> 
-          (match tr_expr e with 
-          | Cst 0 -> tr_seq(y)
-          | _ -> [While(tr_expr e, tr_seq s)] @ tr_seq(y))
-    | x :: y -> [tr_instr x] @ tr_seq y 
+    snd(is_return s)
+and is_return e1 = match e1 with 
+| [] -> false, []
+| Return e :: _ -> true, [Return(tr_expr(e))]
+| If(e, s1, s2)::s -> let f1, sn1 = is_return s1 in
+                      let f2, sn2 = is_return s2 in
+                      (if f1 && f2 then 
+                        true, [If(tr_expr(e), sn1, sn2)]
+                      else 
+                        let (v, n) = is_return s in
+                        v, [If(tr_expr(e), sn1, sn2)] @ n)
+| While(e, s1)::s -> let f1, sn1 = is_return s1 in
+                     (if f1 then
+                        true, [While(tr_expr(e), sn1)]
+                     else 
+                        let (v, n) = is_return s in
+                        v, [While(tr_expr(e), sn1)] @ n)
+| x :: s -> let v, n = is_return s in 
+            v, [tr_instr x] @ n     
+
 
 (* Traduction directe *)
 let tr_function fdef = {
